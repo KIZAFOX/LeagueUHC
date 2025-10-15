@@ -10,6 +10,12 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.Collections;
 
+/**
+ *
+ * @Manawan, utilise cette classe pour example,
+ * pour chaque nouveau champion.
+ *
+ */
 public class Example extends Champion {
 
     private final ExampleAbility ability = new ExampleAbility();
