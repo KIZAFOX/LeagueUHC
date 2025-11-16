@@ -1,7 +1,7 @@
 package fr.kiza.leagueuhc.ui.tablist;
 
 import fr.kiza.leagueuhc.LeagueUHC;
-import fr.kiza.leagueuhc.packets.builder.TablistBuilder;
+import fr.kiza.leagueuhc.core.api.packets.builder.TablistBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
