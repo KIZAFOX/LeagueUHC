@@ -18,15 +18,14 @@ public class PregenManager {
     private boolean paused = false;
 
     private BukkitRunnable task;
-    private Player initiator; // Le joueur qui a lancé la pregen
+    private Player initiator;
+
+    // Radius en blocs (500 = 1000x1000, 750 = 1500x1500, 1000 = 2000x2000)
+    private final int radius = 150; // Change cette valeur selon la taille voulue
 
     public PregenManager(JavaPlugin plugin){
         this.plugin = plugin;
     }
-
-    public boolean isRunning(){ return running; }
-    public boolean isPaused(){ return paused; }
-    public World getWorld(){ return world; }
 
     public void deleteWorld(){
         World w = Bukkit.getWorld(worldName);
@@ -37,45 +36,39 @@ public class PregenManager {
         world = null;
     }
 
-    private void deleteFolder(File file){
-        if(!file.exists()) return;
-        File[] files = file.listFiles();
-        if(files != null){
-            for(File f : files){
-                if(f.isDirectory()) deleteFolder(f);
-                else f.delete();
-            }
-        }
-        file.delete();
-    }
-
     public World createWorld(){
         WorldCreator creator = new WorldCreator(worldName);
         creator.environment(World.Environment.NORMAL);
-        creator.generateStructures(true); // Active les structures (villages, temples, etc.)
-        creator.generator(new CustomBiome()); // Applique notre générateur de biome custom
+        creator.generateStructures(true);
+        creator.generator(new CustomBiome());
 
         World createdWorld = creator.createWorld();
 
         if(createdWorld != null) {
-            // Configure la bordure du monde
+            createdWorld.setDifficulty(Difficulty.HARD);
+            createdWorld.setSpawnFlags(true, true);
+            createdWorld.setPVP(true);
+            createdWorld.setStorm(false);
+            createdWorld.setThundering(false);
+            createdWorld.setWeatherDuration(Integer.MAX_VALUE);
+            createdWorld.setAutoSave(true);
+
             WorldBorder border = createdWorld.getWorldBorder();
             border.setCenter(0, 0);
-            border.setSize(1000); // 1000 blocs de diamètre (500 de rayon)
+            border.setSize(radius * 2);
 
             Bukkit.getConsoleSender().sendMessage(ChatColor.GREEN + "✔ Monde UHC créé avec succès !");
+            Bukkit.getConsoleSender().sendMessage(ChatColor.YELLOW + "  Taille: " + (radius * 2) + "x" + (radius * 2) + " blocs");
         }
 
         return createdWorld;
     }
 
     public void startPregen(Player player){
-        // Crée ou récupère le monde AVANT de démarrer la task
         if(world == null) {
             world = createWorld();
         }
 
-        // Vérifie que le monde a bien été créé
         if(world == null) {
             player.sendMessage(ChatColor.RED + "✘ Erreur: Impossible de créer le monde UHC !");
             return;
@@ -83,13 +76,16 @@ public class PregenManager {
 
         running = true;
         paused = false;
-        initiator = player; // Garde une référence du joueur
+        initiator = player;
 
-        // 1000x1000
-        int radius = 500;
-        int chunkRadius = radius >> 4; // block → chunk
+        int chunkRadius = radius >> 4; // Convertit les blocs en chunks (divise par 16)
 
-        final World pregenWorld = world; // Référence finale pour la task
+        final World pregenWorld = world;
+
+        player.sendMessage(ChatColor.GREEN + "✔ Pré-génération lancée !");
+        player.sendMessage(ChatColor.YELLOW + "  Taille: " + (radius * 2) + "x" + (radius * 2) + " blocs");
+        player.sendMessage(ChatColor.YELLOW + "  Chunks: " + ((chunkRadius * 2 + 1) * (chunkRadius * 2 + 1)) + " chunks à générer");
+        player.sendMessage(ChatColor.GRAY + "  Cela peut prendre plusieurs minutes...");
 
         task = new BukkitRunnable(){
             int x = -chunkRadius;
@@ -105,17 +101,19 @@ public class PregenManager {
                 if(paused) return;
 
                 if(x > chunkRadius){
-                    sendAll(ChatColor.GREEN + "✔ Pré-génération terminée !");
-                    sendMessage(initiator, ChatColor.GREEN + "✔ Pré-génération terminée !");
+                    Bukkit.getOnlinePlayers().forEach(players -> {
+                        ActionBarBuilder.create().message(ChatColor.GREEN + "✔ Pré-génération terminée !").send(players);
+                        players.sendMessage(ChatColor.GREEN + "✔ Pré-génération terminée !");
+                        players.sendMessage(ChatColor.YELLOW + "  Map de " + (radius * 2) + "x" + (radius * 2) + " prête !");
+                    });
                     running = false;
                     paused = false;
                     cancel();
                     return;
                 }
 
-                // Sécurité: vérifie que le monde existe toujours
                 if(pregenWorld == null) {
-                    sendMessage(initiator, ChatColor.RED + "✘ Erreur: Le monde UHC n'existe plus !");
+                    initiator.sendMessage(ChatColor.RED + "✘ Erreur: Le monde UHC n'existe plus !");
                     running = false;
                     cancel();
                     return;
@@ -123,7 +121,7 @@ public class PregenManager {
 
                 pregenWorld.loadChunk(x, z, true);
 
-                // Affiche la progression toutes les 10 chunks
+                // Affiche la progression tous les 10 chunks
                 if(z % 10 == 0){
                     int done = (x + chunkRadius) * (chunkRadius*2+1) + (z + chunkRadius);
                     int total = (chunkRadius*2+1) * (chunkRadius*2+1);
@@ -131,6 +129,7 @@ public class PregenManager {
                 }
 
                 z++;
+
                 if(z > chunkRadius){
                     z = -chunkRadius;
                     x++;
@@ -139,7 +138,6 @@ public class PregenManager {
         };
 
         task.runTaskTimer(plugin, 1L, 1L);
-        player.sendMessage(ChatColor.GREEN + "✔ Pré-génération lancée !");
     }
 
     public void stopPregen(Player player){
@@ -182,25 +180,17 @@ public class PregenManager {
     private void sendProgress(int done, int total){
         int percent = (int)((done / (double) total) * 100);
 
-        // Crée une barre de progression visuelle
-        String progressBar = createProgressBar(percent);
+        final String
+                progressBar = createProgressBar(percent),
+                message = ChatColor.YELLOW + "Pré-génération: " + ChatColor.GOLD + percent + "% " + progressBar;
 
-        String message = ChatColor.YELLOW + "Pré-génération: " +
-                ChatColor.GOLD + percent + "% " +
-                progressBar;
-
-        // Envoie au joueur qui a lancé la pregen
         if(initiator != null && initiator.isOnline()){
             ActionBarBuilder.create().message(message).send(initiator);
         }
 
-        // Envoie aussi à tous les admins en ligne
-        sendAll(message);
+        Bukkit.getOnlinePlayers().forEach(players -> ActionBarBuilder.create().message(message).send(players));
     }
 
-    /**
-     * Crée une barre de progression visuelle
-     */
     private String createProgressBar(int percent) {
         int totalBars = 20;
         int filledBars = (int) ((percent / 100.0) * totalBars);
@@ -220,21 +210,21 @@ public class PregenManager {
         return bar.toString();
     }
 
-    private void sendAll(String message){
-        for(Player p : Bukkit.getOnlinePlayers()){
-            // Envoie seulement aux OPs ou joueurs avec permission
-            if(p.isOp() || p.hasPermission("uhc.admin")){
-                ActionBarBuilder.create().message(message).send(p);
+    private void deleteFolder(File file){
+        if(!file.exists()) return;
+        File[] files = file.listFiles();
+        if(files != null){
+            for(File f : files){
+                if(f.isDirectory()) deleteFolder(f);
+                else f.delete();
             }
         }
+        file.delete();
     }
 
-    /**
-     * Envoie un message normal à un joueur s'il est en ligne
-     */
-    private void sendMessage(Player player, String message){
-        if(player != null && player.isOnline()){
-            player.sendMessage(message);
-        }
-    }
+    public boolean isRunning(){ return running; }
+
+    public boolean isPaused(){ return paused; }
+
+    public World getWorld(){ return world; }
 }

@@ -1,8 +1,9 @@
 package fr.kiza.leagueuhc.core.game.state.states;
 
-import fr.kiza.leagueuhc.core.api.packets.builder.ActionBarBuilder;
 import fr.kiza.leagueuhc.core.api.packets.builder.TitleBuilder;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
+import fr.kiza.leagueuhc.core.game.event.PvPEvent;
+import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
@@ -27,6 +28,7 @@ public class IdleState extends BaseGameState {
         context.reset();
 
         Bukkit.getOnlinePlayers().forEach(players -> this.setupPlayer(context, players));
+        GameEventBus.getInstance().publish(new PvPEvent(false));
     }
 
     @Override
@@ -37,19 +39,7 @@ public class IdleState extends BaseGameState {
      }
 
     @Override
-    public void update(GameContext context, long deltaTime) {
-//        Bukkit.getOnlinePlayers().forEach(players -> {
-//            if (players.isOp()) {
-//                ActionBarBuilder.create()
-//                        .message(ChatColor.GOLD + "Joueurs: " + ChatColor.YELLOW + context.getPlayerCount() + ChatColor.GOLD + " - Ouvre les settings pour lancer")
-//                        .send(players);
-//            } else {
-//                ActionBarBuilder.create()
-//                        .message(ChatColor.GRAY + "En attente du host... (" + ChatColor.YELLOW + context.getPlayerCount() + ChatColor.GRAY + " joueurs)")
-//                        .send(players);
-//            }
-//        });
-    }
+    public void update(GameContext context, long deltaTime) { }
 
     @Override
     public void handleInput(GameContext context, GameInput input) {
@@ -64,7 +54,7 @@ public class IdleState extends BaseGameState {
             case HOST_START:
                 if (context.getPlayerCount() == 1 || context.getPlayerCount() >= 1) {
                     context.setData("hostStarted", true);
-                    input.getPlayer().sendMessage(ChatColor.GREEN + "✔ Lancement de la partie avec " + context.getPlayerCount() + " joueur(s) !");
+                    input.getPlayer().sendMessage(ChatColor.GREEN + "✔ Lancement de la partie avec " + context.getPlayerCount() + " joueurs !");
                 }
                 break;
             default:

@@ -1,6 +1,8 @@
 package fr.kiza.leagueuhc.core.game.state.states;
 
 import fr.kiza.leagueuhc.core.game.context.GameContext;
+import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
+import fr.kiza.leagueuhc.core.game.event.MovementFreezeEvent;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
@@ -32,9 +34,7 @@ public class StartingState extends BaseGameState {
     }
 
     @Override
-    public void onExit(GameContext context) {
-        this.broadcast(ChatColor.RED + "" + ChatColor.BOLD + "C'EST PARTI !");
-    }
+    public void onExit(GameContext context) { }
 
     @Override
     public void update(GameContext context, long deltaTime) {
@@ -48,9 +48,12 @@ public class StartingState extends BaseGameState {
 
             if (countdown > 0) {
                 if (countdown <= 5) {
-                    this.broadcast(ChatColor.RED + "" + ChatColor.BOLD + countdown + "...");
+                    GameEventBus.getInstance().publish(new MovementFreezeEvent(true));
 
-                    Bukkit.getOnlinePlayers().forEach(players -> players.playSound(players.getLocation(), Sound.NOTE_PLING, 1.0f, 1.5f));
+                    Bukkit.getOnlinePlayers().forEach(players -> {
+                        players.playSound(players.getLocation(), Sound.NOTE_PLING, 1.0f, 1.5f);
+                        players.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + countdown + "...");
+                    });
                 } else if (countdown == 10) {
                     this.broadcast(ChatColor.YELLOW + "Démarrage dans" + ChatColor.RED + " 10 " + ChatColor.YELLOW + "secondes !");
                 }

@@ -3,6 +3,7 @@ package fr.kiza.leagueuhc.core.game.state.states;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
+import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
 import org.bukkit.*;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
@@ -73,6 +74,8 @@ public class EndingState extends BaseGameState {
             if (winnerPlayer != null) {
                 this.broadcast("§6§l⭐ VAINQUEUR: §e§l" + winnerPlayer.getName());
                 this.broadcast("§a§lFélicitations !");
+                this.broadcast(" ");
+                this.broadcast(ChatColor.GREEN + "⏱ Durée: " + ChatColor.WHITE + ChatColor.BOLD + GameTimerManager.getInstance().getFormattedTime());
 
                 int score = context.getScore(winner);
 

@@ -1,6 +1,7 @@
 package fr.kiza.leagueuhc.core.game.context;
 
 import fr.kiza.leagueuhc.core.game.scenario.Scenario;
+import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
 import fr.kiza.leagueuhc.managers.commands.CommandUHC;
 import org.bukkit.potion.PotionEffectType;
 
@@ -21,7 +22,7 @@ public class GameContext {
     private final Map<PotionEffectType, Integer> effectPercentages;
 
     public GameContext() {
-        this.maxPlayers = 16;
+        this.maxPlayers = 32;
         this.countdown = 10;
         this.isPaused = false;
 
@@ -225,6 +226,8 @@ public class GameContext {
 
         this.clearScenarios();
         this.resetEffects();
+
+        GameTimerManager.getInstance().reset();
 
         if (CommandUHC.pregenManager != null) CommandUHC.pregenManager.resetPregen();
     }

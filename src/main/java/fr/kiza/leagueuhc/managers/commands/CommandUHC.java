@@ -2,6 +2,9 @@ package fr.kiza.leagueuhc.managers.commands;
 
 import fr.kiza.leagueuhc.LeagueUHC;
 import fr.kiza.leagueuhc.core.api.champion.ChampionRegistry;
+import fr.kiza.leagueuhc.core.api.gui.core.AbstractGui;
+import fr.kiza.leagueuhc.core.api.gui.core.ButtonAction;
+import fr.kiza.leagueuhc.core.api.gui.helper.GuiBuilder;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
 import fr.kiza.leagueuhc.core.game.effect.EffectType;
 import fr.kiza.leagueuhc.core.game.effect.EffectsApplier;
@@ -13,6 +16,9 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
 
@@ -52,7 +58,7 @@ public class CommandUHC implements CommandExecutor, TabCompleter {
                 return true;
             case "inv":
             case "inventory":
-                this.handleInventoryCommand(player);
+                this.handleInventoryCommand(player, args);
                 return true;
             case "scenarios":
                 this.handleScenariosCommand(player);
@@ -152,7 +158,6 @@ public class CommandUHC implements CommandExecutor, TabCompleter {
                 pregenManager.deleteWorld();
 
                 player.sendMessage(ChatColor.GREEN+"✔ Création du monde uhc-world...");
-                World w = pregenManager.createWorld();
 
                 player.sendMessage(ChatColor.GREEN+"✔ Lancement de la pré-génération 1000x1000...");
                 pregenManager.startPregen(player);
@@ -211,67 +216,129 @@ public class CommandUHC implements CommandExecutor, TabCompleter {
         }
     }
 
-    private void handleInventoryCommand(Player player) {
+    private void handleInventoryCommand(Player player, String[] args) {
         if(!this.hasPermission(player)) {
             player.sendMessage(ChatColor.RED + "✘ Vous n'avez pas la permission !");
             return;
         }
 
-        final UUID uuid = player.getUniqueId();
+        if (args.length == 1) {
+            final UUID uuid = player.getUniqueId();
 
-        if(!InventoryHelper.SAVED_INVENTORY.containsKey(uuid)) {
-            InventoryHelper.SAVED_INVENTORY.put(uuid, new InventoryHelper(
-                    player.getInventory().getContents().clone(),
-                    player.getInventory().getArmorContents().clone(),
-                    player.getGameMode()
-            ));
+            if(!InventoryHelper.getSavedInventory().containsKey(uuid)) {
+                InventoryHelper.getSavedInventory().put(uuid, new InventoryHelper(
+                        player.getInventory().getContents().clone(),
+                        player.getInventory().getArmorContents().clone(),
+                        player.getGameMode()
+                ));
 
-            player.setGameMode(GameMode.CREATIVE);
-            player.getInventory().clear();
-            player.getInventory().setArmorContents(null);
+                player.setGameMode(GameMode.CREATIVE);
+                player.getInventory().clear();
+                player.getInventory().setArmorContents(null);
 
-            if(InventoryHelper.START_INVENTORY != null) {
-                player.getInventory().setContents(InventoryHelper.START_INVENTORY.getContents().clone());
-                player.getInventory().setArmorContents(InventoryHelper.START_INVENTORY.getArmor().clone());
+                if(InventoryHelper.hasStartInventory()) {
+                    InventoryHelper startInv = InventoryHelper.getStartInventory();
+                    player.getInventory().setContents(startInv.getContents().clone());
+                    player.getInventory().setArmorContents(startInv.getArmor().clone());
 
-                player.sendMessage("");
-                player.sendMessage(ChatColor.GREEN + "✔ Mode édition activé !");
-                player.sendMessage(ChatColor.YELLOW + "➜ Modification du kit universel");
-                player.sendMessage(ChatColor.GOLD + "⚠ Ce kit sera donné à TOUS les joueurs");
-                player.sendMessage(ChatColor.GRAY + "Refais " + ChatColor.WHITE + "/uhc inv" + ChatColor.GRAY + " pour sauvegarder");
-                player.sendMessage("");
+                    player.sendMessage("");
+                    player.sendMessage(ChatColor.GREEN + "✔ Mode édition activé !");
+                    player.sendMessage(ChatColor.YELLOW + "➜ Modification du kit universel");
+                    player.sendMessage(ChatColor.GOLD + "⚠ Ce kit sera donné à TOUS les joueurs");
+                    player.sendMessage(ChatColor.GRAY + "Refais " + ChatColor.WHITE + "/uhc inv" + ChatColor.GRAY + " pour sauvegarder");
+                    player.sendMessage("");
+                } else {
+                    player.sendMessage("");
+                    player.sendMessage(ChatColor.GREEN + "✔ Mode édition activé !");
+                    player.sendMessage(ChatColor.YELLOW + "➜ Crée le kit universel de départ");
+                    player.sendMessage(ChatColor.GOLD + "⚠ Ce kit sera donné à TOUS les joueurs");
+                    player.sendMessage(ChatColor.GRAY + "Place les items et armures aux bons slots");
+                    player.sendMessage(ChatColor.GRAY + "Fais " + ChatColor.WHITE + "/uhc inv" + ChatColor.GRAY + " pour sauvegarder");
+                    player.sendMessage("");
+                }
+
             } else {
+                InventoryHelper.setStartInventory(new InventoryHelper(
+                        player.getInventory().getContents().clone(),
+                        player.getInventory().getArmorContents().clone(),
+                        GameMode.SURVIVAL
+                ));
+
+                final InventoryHelper backup = InventoryHelper.getSavedInventory().remove(uuid);
+
+                player.getInventory().setContents(backup.getContents());
+                player.getInventory().setArmorContents(backup.getArmor());
+                player.setGameMode(backup.getGameMode());
+
                 player.sendMessage("");
-                player.sendMessage(ChatColor.GREEN + "✔ Mode édition activé !");
-                player.sendMessage(ChatColor.YELLOW + "➜ Crée le kit universel de départ");
-                player.sendMessage(ChatColor.GOLD + "⚠ Ce kit sera donné à TOUS les joueurs");
-                player.sendMessage(ChatColor.GRAY + "Place les items et armures aux bons slots");
-                player.sendMessage(ChatColor.GRAY + "Fais " + ChatColor.WHITE + "/uhc inv" + ChatColor.GRAY + " pour sauvegarder");
+                player.sendMessage(ChatColor.GREEN + "✔ Kit universel sauvegardé !");
+                player.sendMessage(ChatColor.GOLD + "➜ Tous les joueurs recevront ce kit");
+                player.sendMessage(ChatColor.GRAY + "Items et armures enregistrés avec leurs slots");
                 player.sendMessage("");
+
+                player.setAllowFlight(true);
+                player.setFlying(true);
+            }
+        } else if(args.length == 2 && args[1].equalsIgnoreCase("check")) {
+            if(!InventoryHelper.hasStartInventory()) {
+                player.sendMessage("");
+                player.sendMessage(ChatColor.RED + "✘ Aucun kit universel n'a été créé !");
+                player.sendMessage(ChatColor.GRAY + "Utilise " + ChatColor.WHITE + "/uhc inv" + ChatColor.GRAY + " pour en créer un");
+                player.sendMessage("");
+                return;
             }
 
-        } else {
-            InventoryHelper.START_INVENTORY = new InventoryHelper(
-                    player.getInventory().getContents().clone(),
-                    player.getInventory().getArmorContents().clone(),
-                    GameMode.SURVIVAL
-            );
-
-            final InventoryHelper backup = InventoryHelper.SAVED_INVENTORY.remove(uuid);
-
-            player.getInventory().setContents(backup.getContents());
-            player.getInventory().setArmorContents(backup.getArmor());
-            player.setGameMode(backup.getGameMode());
-
-            player.sendMessage("");
-            player.sendMessage(ChatColor.GREEN + "✔ Kit universel sauvegardé !");
-            player.sendMessage(ChatColor.GOLD + "➜ Tous les joueurs recevront ce kit");
-            player.sendMessage(ChatColor.GRAY + "Items et armures enregistrés avec leurs slots");
-            player.sendMessage("");
-
-            player.setAllowFlight(true);
-            player.setFlying(true);
+            this.openKitCheckGui(player);
         }
+    }
+
+    private void openKitCheckGui(Player player) {
+        final InventoryHelper startInv = InventoryHelper.getStartInventory();
+        final GuiBuilder builder = new GuiBuilder(this.instance);
+
+        builder.title(ChatColor.GOLD + "Kit - Check").size(54);
+
+        final ButtonAction noAction = (p, inv) -> {};
+
+        final ItemStack[] contents = startInv.getContents();
+
+        for(int i = 0; i < contents.length && i < 36; i++) {
+            if(contents[i] != null) {
+                builder.button(i, contents[i].clone(), noAction);
+            }
+        }
+
+        final ItemStack[] armor = startInv.getArmor();
+
+        if(armor != null) {
+            if(armor[0] != null) {
+                builder.button(36, armor[0].clone(), null);
+            }
+            if(armor[1] != null) {
+                builder.button(37, armor[1].clone(), noAction);
+            }
+            if(armor[2] != null) {
+                builder.button(38, armor[2].clone(), noAction);
+            }
+            if(armor[3] != null) {
+                builder.button(39, armor[3].clone(), noAction);
+            }
+        }
+
+        final ItemStack info = new ItemStack(Material.PAPER);
+        final ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.setDisplayName(ChatColor.YELLOW + "ℹ Informations");
+        infoMeta.setLore(Arrays.asList(
+                ChatColor.GRAY + "Ce kit sera donné à",
+                ChatColor.GRAY + "tous les joueurs au début",
+                "",
+                ChatColor.GOLD + "Slots 1-36: " + ChatColor.WHITE + "Inventaire",
+                ChatColor.GOLD + "Slots 37-40: " + ChatColor.WHITE + "Armures"
+        ));
+        info.setItemMeta(infoMeta);
+
+        builder.button(45, info, noAction);
+        builder.build().open(player);
     }
 
     private void handleScenariosCommand(Player player) {
@@ -313,7 +380,6 @@ public class CommandUHC implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.GOLD + "═══════════════════════════════════");
         player.sendMessage("");
 
-        // ========== EFFETS ==========
         player.sendMessage(ChatColor.AQUA + "" + ChatColor.BOLD + "⚡ EFFETS ACTIFS:");
         player.sendMessage("");
 
@@ -341,7 +407,6 @@ public class CommandUHC implements CommandExecutor, TabCompleter {
 
         player.sendMessage("");
 
-        // ========== SCÉNARIOS ==========
         player.sendMessage(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "📜 SCÉNARIOS ACTIVÉS:");
         player.sendMessage("");
 

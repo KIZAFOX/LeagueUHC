@@ -1,6 +1,7 @@
 package fr.kiza.leagueuhc.ui.scoreboard;
 
 import fr.kiza.leagueuhc.LeagueUHC;
+import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
 import fr.mrmicky.fastboard.FastBoard;
 
 import org.bukkit.ChatColor;
@@ -12,6 +13,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class Scoreboard implements Listener {
@@ -38,7 +40,7 @@ public class Scoreboard implements Listener {
         final Player player = event.getPlayer();
         final FastBoard board = new FastBoard(player);
 
-        board.updateTitle(ChatColor.GOLD + "" + ChatColor.BOLD + "LEAGUE" + ChatColor.YELLOW + ChatColor.BOLD + "UHC");
+        board.updateTitle(ChatColor.GOLD + "" + ChatColor.BOLD + "League" + ChatColor.YELLOW + ChatColor.BOLD + "UHC");
         this.boards.put(player.getUniqueId(), board);
     }
 
@@ -66,25 +68,11 @@ public class Scoreboard implements Listener {
     }
 
     private void updatePlayingBoard(final FastBoard board) {
-        final int alivePlayers = this.instance.getGameEngine().getContext().getAlivePlayers().size();
-        final int totalPlayers = this.instance.getGameEngine().getContext().getPlayers().size();
-        final boolean isAlive = this.instance.getGameEngine().getContext().getAlivePlayers().contains(board.getPlayer().getUniqueId());
-
         List<String> lines = new ArrayList<>();
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " lol-1");
         lines.add("");
-
-        if (isAlive) {
-            lines.add(ChatColor.GREEN + "┃ ⚔ " + ChatColor.BOLD + "EN VIE");
-        } else {
-            lines.add(ChatColor.RED + "┃ ☠ " + ChatColor.BOLD + "SPECTATEUR");
-        }
-
-        lines.add("");
-        lines.add(ChatColor.GOLD + "┃ " + ChatColor.YELLOW + "Joueurs: " + ChatColor.WHITE + alivePlayers + ChatColor.DARK_GRAY + "/" + ChatColor.GRAY + totalPlayers);
-
-        lines.add("");
-        lines.add(ChatColor.GOLD + "┃ " + ChatColor.YELLOW + "Kills: " + ChatColor.WHITE + "0");
-
+        lines.add(ChatColor.WHITE + "  Durée: " + ChatColor.YELLOW + GameTimerManager.getInstance().getFormattedTime());
+        lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getMaxPlayers());
         lines.add("");
         lines.add(getAnimatedIP());
 
@@ -93,13 +81,11 @@ public class Scoreboard implements Listener {
 
     private void updateFinishedBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " lol-1");
         lines.add("");
-        lines.add(ChatColor.GOLD + "┃ " + ChatColor.YELLOW + ChatColor.BOLD + "PARTIE TERMINÉE");
-        lines.add("");
-        lines.add(ChatColor.GRAY + "┃ En attente du prochain");
+        lines.add(ChatColor.GRAY + "┃ En attente");
+        lines.add(ChatColor.GRAY + "┃ du prochain");
         lines.add(ChatColor.GRAY + "┃ redémarrage...");
-        lines.add("");
-        lines.add(ChatColor.GOLD + "┃ " + ChatColor.YELLOW + "Joueurs: " + ChatColor.WHITE + this.server.getOnlinePlayers().size());
         lines.add("");
         lines.add(getAnimatedIP());
 
@@ -108,11 +94,10 @@ public class Scoreboard implements Listener {
 
     private void updateDefaultBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + "lol-1");
         lines.add("");
-        lines.add(ChatColor.YELLOW + "┃ " + board.getPlayer().getName());
-        lines.add(ChatColor.GRAY + "┃ " + this.instance.getGameEngine().getCurrentState());
-        lines.add("");
-        lines.add(ChatColor.GOLD + "┃ " + ChatColor.YELLOW + "Joueurs: " + ChatColor.WHITE + this.server.getOnlinePlayers().size());
+        lines.add(ChatColor.WHITE + "  Host: " + ChatColor.RED + "??");
+        lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getMaxPlayers());
         lines.add("");
         lines.add(getAnimatedIP());
 
@@ -152,5 +137,10 @@ public class Scoreboard implements Listener {
         }
 
         return formattedIp.toString();
+    }
+
+    private String getCurrentDate() {
+        final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+        return ChatColor.GRAY +  dateFormat.format(new Date());
     }
 }

@@ -4,6 +4,8 @@ import fr.kiza.leagueuhc.managers.commands.CommandUHC;
 import fr.kiza.leagueuhc.core.game.GameEngine;
 
 import fr.kiza.leagueuhc.core.game.GameHelper;
+import fr.kiza.leagueuhc.utils.PluginMessage;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class LeagueUHC extends JavaPlugin {
@@ -12,17 +14,23 @@ public final class LeagueUHC extends JavaPlugin {
 
     private GameEngine gameEngine;
 
+    private static final String CHANNEL = "leagueuhc:whitelist";
+
     @Override
     public void onEnable() {
         instance = this;
 
         this.getLogger().info("==== LeagueUHC START ====");
 
-        this.getServer().getWorlds().forEach(worlds -> {
-            worlds.setStorm(false);
-            worlds.setThundering(false);
-            worlds.setWeatherDuration(Integer.MAX_VALUE);
-        });
+        Bukkit.setWhitelist(true);
+        Bukkit.reloadWhitelist();
+
+        Bukkit.getWhitelistedPlayers().add(Bukkit.getOfflinePlayer("Esc0rte2Luxe"));
+
+        Bukkit.getWhitelistedPlayers().forEach(players -> System.out.println("- " + players.getName()));
+
+        Bukkit.getMessenger().registerIncomingPluginChannel(this, CHANNEL, new PluginMessage(this));
+        Bukkit.getMessenger().registerOutgoingPluginChannel(this, CHANNEL);
 
         GameHelper.init(this);
 

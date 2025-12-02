@@ -4,7 +4,6 @@ import fr.kiza.leagueuhc.LeagueUHC;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
 import fr.kiza.leagueuhc.core.game.effect.EffectsApplier;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
-import fr.kiza.leagueuhc.core.game.observer.IGameObserver;
 import fr.kiza.leagueuhc.core.game.state.GameState;
 import fr.kiza.leagueuhc.core.game.state.StateManager;
 import fr.kiza.leagueuhc.core.game.state.states.*;
@@ -67,10 +66,6 @@ public class GameEngine extends BukkitRunnable {
         this.stateManager.handleInput(context, input);
     }
 
-    public void addObserver(final IGameObserver observer) {
-        this.stateManager.addObserver(observer);
-    }
-
     private void initializeStates() {
         this.stateManager.registerState(new IdleState());
         this.stateManager.registerState(new StartingState());
@@ -87,13 +82,6 @@ public class GameEngine extends BukkitRunnable {
                 ctx -> ctx.<Boolean>getData("hostStarted", false)
         ));
 
-        // STARTING -> IDLE (si plus aucun joueur pendant le countdown)
-        stateManager.registerTransition(new StateTransition(
-                GameState.STARTING.getName(),
-                GameState.IDLE.getName(),
-                ctx -> ctx.getPlayerCount() < 1
-        ));
-
         // STARTING -> PLAYING (countdown terminé)
         stateManager.registerTransition(new StateTransition(
                 GameState.STARTING.getName(),
@@ -102,11 +90,17 @@ public class GameEngine extends BukkitRunnable {
         ));
 
         // PLAYING -> ENDING (un seul joueur vivant ou moins, ou partie terminée manuellement)
+//        stateManager.registerTransition(new StateTransition(
+//                GameState.PLAYING.getName(),
+//                GameState.ENDING.getName(),
+//                ctx -> ctx.getAlivePlayers().size() <= 1 ||
+//                        ctx.<Boolean>getData("gameEnded", false)
+//        ));
+
         stateManager.registerTransition(new StateTransition(
                 GameState.PLAYING.getName(),
                 GameState.ENDING.getName(),
-                ctx -> ctx.getAlivePlayers().size() <= 1 ||
-                        ctx.<Boolean>getData("gameEnded", false)
+                ctx -> ctx.getData("gameEnded", false) // Seulement si fin manuelle
         ));
 
         // ENDING -> FINISHED (après 5 secondes)
