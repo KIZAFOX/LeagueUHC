@@ -51,8 +51,6 @@ public class PlayingState extends BaseGameState {
             return;
         }
 
-        Bukkit.getLogger().info("[LeagueUHC] Monde UHC trouvé: " + uhcWorld.getName());
-
         final Location location = uhcWorld.getSpawnLocation();
 
         if (location == null) {
@@ -90,38 +88,26 @@ public class PlayingState extends BaseGameState {
                 final Player player = players.get(index[0]);
 
                 if (player != null && player.isOnline()) {
-                    final Location randomLocation = randomLocation(uhcWorld, uhcWorld.getWorldBorder().getSize() / 2.0, usedLocations, minDistance);
+                    final double safeRadius = (uhcWorld.getWorldBorder().getSize() / 2.0) - 20;
+                    final Location randomLocation = randomLocation(uhcWorld, safeRadius, usedLocations, minDistance);
 
                     usedLocations.add(randomLocation);
 
-                    // FORCER LE CHARGEMENT DU CHUNK AVANT LA TÉLÉPORTATION
                     Chunk chunk = randomLocation.getChunk();
                     if (!chunk.isLoaded()) {
-                        chunk.load(true); // true = génère le chunk s'il n'existe pas
+                        chunk.load(true);
                     }
 
-                    Bukkit.getLogger().info("[LeagueUHC] Téléportation de " + player.getName() + " vers " +
-                            randomLocation.getBlockX() + ", " + randomLocation.getBlockY() + ", " + randomLocation.getBlockZ() +
-                            " dans le monde: " + randomLocation.getWorld().getName());
-
-                    // Téléportation avec un petit délai pour s'assurer que le chunk est bien chargé
                     final Location finalLoc = randomLocation.clone();
                     new BukkitRunnable() {
                         @Override
                         public void run() {
                             player.teleport(finalLoc);
 
-                            // Vérification après téléportation
                             new BukkitRunnable() {
                                 @Override
                                 public void run() {
-                                    Location currentLoc = player.getLocation();
-                                    Bukkit.getLogger().info("[LeagueUHC] Position actuelle de " + player.getName() + ": " +
-                                            currentLoc.getBlockX() + ", " + currentLoc.getBlockY() + ", " + currentLoc.getBlockZ() +
-                                            " dans le monde: " + currentLoc.getWorld().getName());
-
-                                    if (!currentLoc.getWorld().getName().equals("uhc-world")) {
-                                        Bukkit.getLogger().warning("[LeagueUHC] PROBLEME: " + player.getName() + " n'est pas dans uhc-world ! Re-téléportation...");
+                                    if (!player.getLocation().getWorld().getName().equals("uhc-world")) {
                                         player.teleport(finalLoc);
                                     }
                                 }
@@ -256,8 +242,16 @@ public class PlayingState extends BaseGameState {
 
         do {
             double
-                    x = (random.nextDouble() * 2 - 1) * (borderRadius - 10),
-                    z = (random.nextDouble() * 2 - 1) * (borderRadius - 10);
+                    x = (random.nextDouble() * 2 - 1) * borderRadius,
+                    z = (random.nextDouble() * 2 - 1) * borderRadius;
+
+            int chunkX = (int) x >> 4;
+            int chunkZ = (int) z >> 4;
+
+            if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                world.loadChunk(chunkX, chunkZ, true);
+            }
+
             int y = world.getHighestBlockYAt((int) x, (int) z);
 
             location = new Location(world, x + 0.5, y + 1, z + 0.5);
@@ -285,6 +279,10 @@ public class PlayingState extends BaseGameState {
 
         if (maxAttempts == 0) {
             location = new Location(world, 0.5, world.getHighestBlockYAt(0, 0) + 1, 0.5);
+
+            if (!world.isChunkLoaded(0, 0)) {
+                world.loadChunk(0, 0, true);
+            }
         }
 
         return location;

@@ -21,7 +21,7 @@ public class PregenManager {
     private Player initiator;
 
     // Radius en blocs (500 = 1000x1000, 750 = 1500x1500, 1000 = 2000x2000)
-    private final int radius = 150; // Change cette valeur selon la taille voulue
+    public static final int radius = 150; // Change cette valeur selon la taille voulue
 
     public PregenManager(JavaPlugin plugin){
         this.plugin = plugin;

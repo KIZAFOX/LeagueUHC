@@ -23,9 +23,6 @@ public final class LeagueUHC extends JavaPlugin {
         this.getLogger().info("==== LeagueUHC START ====");
 
         Bukkit.setWhitelist(true);
-        Bukkit.reloadWhitelist();
-
-        Bukkit.getWhitelistedPlayers().add(Bukkit.getOfflinePlayer("Esc0rte2Luxe"));
 
         Bukkit.getWhitelistedPlayers().forEach(players -> System.out.println("- " + players.getName()));
 

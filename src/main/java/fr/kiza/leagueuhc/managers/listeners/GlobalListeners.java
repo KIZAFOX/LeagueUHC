@@ -8,7 +8,6 @@ import fr.kiza.leagueuhc.core.game.event.PvPEvent;
 import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
 import fr.kiza.leagueuhc.core.game.event.MovementFreezeEvent;
 import fr.kiza.leagueuhc.core.game.gui.settings.SettingsGUI;
-import fr.kiza.leagueuhc.core.game.mechanics.GameMechanicsManager;
 import fr.kiza.leagueuhc.core.game.state.GameState;
 import org.bukkit.*;
 import org.bukkit.block.Chest;
@@ -52,6 +51,16 @@ public class GlobalListeners implements Listener {
         });
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onPlayerTeleport(PlayerTeleportEvent event) {
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.UNKNOWN &&
+                event.getFrom().getWorld().getName().equals("uhc-world") &&
+                event.getTo().getWorld().getName().equals("world")) {
+
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler (priority = EventPriority.MONITOR)
     public void onLogin(final PlayerJoinEvent event) {
         event.setJoinMessage(null);
@@ -68,7 +77,11 @@ public class GlobalListeners implements Listener {
         player.setMaxHealth(20.0D);
         player.setHealth(player.getMaxHealth());
 
-        player.teleport(new Location(Bukkit.getWorlds().get(0), 0, 100, 0));
+        final String currentState = this.instance.getGameEngine().getCurrentState();
+        if (!currentState.equals(GameState.PLAYING.getName()) &&
+                !currentState.equals(GameState.STARTING.getName())) {
+            player.teleport(new Location(Bukkit.getWorlds().get(0), 0, 100, 0));
+        }
     }
 
     @EventHandler (priority = EventPriority.MONITOR)
@@ -134,19 +147,24 @@ public class GlobalListeners implements Listener {
 
         if (this.movementFrozen) {
             final Player player = event.getPlayer();
-             Location location = this.frozenLocations.get(player.getUniqueId());
+            Location frozenLocation = this.frozenLocations.get(player.getUniqueId());
 
-            if (location == null) {
-                location = player.getLocation().clone();
-                this.frozenLocations.put(player.getUniqueId(), location);
+            if (frozenLocation == null) {
+                frozenLocation = player.getLocation().clone();
+                this.frozenLocations.put(player.getUniqueId(), frozenLocation);
             }
 
-            final Location
-                    from = event.getFrom(),
-                    to = event.getTo();
+            if (!player.getWorld().getName().equals(frozenLocation.getWorld().getName())) {
+                frozenLocation = player.getLocation().clone();
+                this.frozenLocations.put(player.getUniqueId(), frozenLocation);
+                return;
+            }
+
+            final Location from = event.getFrom();
+            final Location to = event.getTo();
 
             if (from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
-                final Location newLoc = location.clone();
+                final Location newLoc = frozenLocation.clone();
                 newLoc.setYaw(to.getYaw());
                 newLoc.setPitch(to.getPitch());
                 event.setTo(newLoc);
