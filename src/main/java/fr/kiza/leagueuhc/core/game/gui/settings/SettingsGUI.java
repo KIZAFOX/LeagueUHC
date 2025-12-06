@@ -9,6 +9,7 @@ import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.input.InputType;
 import fr.kiza.leagueuhc.core.game.state.GameState;
 import fr.kiza.leagueuhc.core.api.gui.helper.GuiBuilder;
+import fr.kiza.leagueuhc.managers.commands.CommandUHC;
 import fr.kiza.leagueuhc.utils.ItemBuilder;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -59,7 +60,7 @@ public class SettingsGUI implements Listener {
         String currentState = instance.getGameEngine().getCurrentState();
         boolean isIdle = currentState.equals(GameState.IDLE.getName());
 
-        boolean isPregenComplete = !PregenManager.running && PregenManager.world != null;
+        boolean isPregenComplete = !CommandUHC.pregenManager.isRunning() && CommandUHC.pregenManager.getWorld() != null;
 
         GuiBuilder gui = new GuiBuilder(instance)
                 .title(ChatColor.DARK_RED + "⚔ " + ChatColor.RED + ChatColor.BOLD + "UHC SETTINGS" + ChatColor.DARK_RED + " ⚔")

@@ -154,10 +154,6 @@ public class CommandUHC implements CommandExecutor, TabCompleter {
                     player.sendMessage(ChatColor.RED+"✘ Une prégen est déjà en cours !");
                     return;
                 }
-                player.sendMessage(ChatColor.GREEN+"✔ Suppression de l'ancien monde...");
-                pregenManager.deleteWorld();
-
-                player.sendMessage(ChatColor.GREEN+"✔ Création du monde uhc-world...");
 
                 player.sendMessage(ChatColor.GREEN+"✔ Lancement de la pré-génération 1000x1000...");
                 pregenManager.startPregen(player);

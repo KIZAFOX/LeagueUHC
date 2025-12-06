@@ -4,6 +4,7 @@ import fr.kiza.leagueuhc.LeagueUHC;
 import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
 import fr.mrmicky.fastboard.FastBoard;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
@@ -69,7 +70,7 @@ public class Scoreboard implements Listener {
 
     private void updatePlayingBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
-        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " lol-1");
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " uhc-server");
         lines.add("");
         lines.add(ChatColor.WHITE + "  Durée: " + ChatColor.YELLOW + GameTimerManager.getInstance().getFormattedTime());
         lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getMaxPlayers());
@@ -81,7 +82,7 @@ public class Scoreboard implements Listener {
 
     private void updateFinishedBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
-        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " lol-1");
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " uhc-server");
         lines.add("");
         lines.add(ChatColor.GRAY + "┃ En attente");
         lines.add(ChatColor.GRAY + "┃ du prochain");
@@ -94,9 +95,9 @@ public class Scoreboard implements Listener {
 
     private void updateDefaultBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
-        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + "lol-1");
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " uhc-server");
         lines.add("");
-        lines.add(ChatColor.WHITE + "  Host: " + ChatColor.RED + "??");
+        lines.add(ChatColor.WHITE + "  Host: " + ChatColor.RED + Bukkit.getServer().getOperators().stream().iterator().next().getName());
         lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getMaxPlayers());
         lines.add("");
         lines.add(getAnimatedIP());
