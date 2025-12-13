@@ -2,8 +2,10 @@ package fr.kiza.leagueuhc.core.game.input;
 
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class GameInput {
@@ -14,6 +16,8 @@ public class GameInput {
     private final long timestamp;
 
     private final Map<String, Object> data;
+
+    private List<ItemStack> deathDrops;
 
     public GameInput(InputType type, Player player, Event event) {
         this.type = type;
@@ -49,5 +53,13 @@ public class GameInput {
 
     public void setData(final String key, final Object value) {
         data.put(key, value);
+    }
+
+    public List<ItemStack> getDeathDrops() {
+        return deathDrops;
+    }
+
+    public void setDeathDrops(List<ItemStack> deathDrops) {
+        this.deathDrops = deathDrops;
     }
 }

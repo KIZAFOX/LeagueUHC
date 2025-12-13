@@ -2,32 +2,32 @@ package fr.kiza.leagueuhc.core.game;
 
 import fr.kiza.leagueuhc.LeagueUHC;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
-import fr.kiza.leagueuhc.core.game.effect.EffectsApplier;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.state.GameState;
 import fr.kiza.leagueuhc.core.game.state.StateManager;
 import fr.kiza.leagueuhc.core.game.state.states.*;
 import fr.kiza.leagueuhc.core.game.state.transition.StateTransition;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 public class GameEngine extends BukkitRunnable {
 
-    private final JavaPlugin plugin;
+    protected final LeagueUHC instance;
+
+    private final GameHelper gameHelper;
+
     private final StateManager stateManager;
     private final GameContext context;
-
-    private final EffectsApplier effectsApplier;
 
     private long lastUpdate;
     private boolean isRunning;
 
-    public GameEngine(JavaPlugin plugin) {
-        this.plugin = plugin;
+    public GameEngine(LeagueUHC instance) {
+        this.gameHelper = new GameHelper();
+        this.gameHelper.init(instance);
+
+        this.instance = instance;
         this.stateManager = new StateManager();
         this.context = new GameContext();
-
-        this.effectsApplier = new EffectsApplier((LeagueUHC) this.plugin, this.context);
 
         this.lastUpdate = System.currentTimeMillis();
         this.isRunning = false;
@@ -35,7 +35,7 @@ public class GameEngine extends BukkitRunnable {
         this.initializeStates();
         this.setupTransitions();
 
-        plugin.getServer().getPluginManager().registerEvents(new GameListener(LeagueUHC.getInstance()), plugin);
+        instance.getServer().getPluginManager().registerEvents(new GameListener(LeagueUHC.getInstance()), instance);
     }
 
     @Override
@@ -54,10 +54,12 @@ public class GameEngine extends BukkitRunnable {
 
         this.isRunning = true;
         this.stateManager.changeState(GameState.IDLE.getName(), context);
-        this.runTaskTimer(this.plugin, 0L, 1L);
+        this.runTaskTimer(this.instance, 0L, 1L);
     }
 
     public void stop() {
+        if (gameHelper != null) gameHelper.onDisable();
+
         this.isRunning = false;
         this.cancel();
     }
@@ -129,7 +131,7 @@ public class GameEngine extends BukkitRunnable {
         return stateManager.getCurrentStateName();
     }
 
-    public EffectsApplier getEffectsApplier() {
-        return effectsApplier;
+    public GameHelper getGameHelper() {
+        return gameHelper;
     }
 }

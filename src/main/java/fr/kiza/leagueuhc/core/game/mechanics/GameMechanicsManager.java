@@ -22,7 +22,6 @@ public class GameMechanicsManager {
         if (!PvPEvent.PvPHandler.getInstance().isEnabled() && seconds >= 20) {
             PvPEvent.PvPHandler.getInstance().setEnabled(true);
             Bukkit.getOnlinePlayers().forEach(players -> players.sendMessage(ChatColor.RED + "PvP Activé !"));
-
         }
 
         // final heal at 10min and 20min

@@ -3,8 +3,6 @@ package fr.kiza.leagueuhc;
 import fr.kiza.leagueuhc.managers.commands.CommandUHC;
 import fr.kiza.leagueuhc.core.game.GameEngine;
 
-import fr.kiza.leagueuhc.core.game.GameHelper;
-import fr.kiza.leagueuhc.utils.PluginMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -14,8 +12,6 @@ public final class LeagueUHC extends JavaPlugin {
 
     private GameEngine gameEngine;
 
-    private static final String CHANNEL = "leagueuhc:whitelist";
-
     @Override
     public void onEnable() {
         instance = this;
@@ -24,13 +20,6 @@ public final class LeagueUHC extends JavaPlugin {
 
         Bukkit.setWhitelist(true);
 
-        Bukkit.getWhitelistedPlayers().forEach(players -> System.out.println("- " + players.getName()));
-
-        Bukkit.getMessenger().registerIncomingPluginChannel(this, CHANNEL, new PluginMessage(this));
-        Bukkit.getMessenger().registerOutgoingPluginChannel(this, CHANNEL);
-
-        GameHelper.init(this);
-
         this.gameEngine = new GameEngine(this);
         this.gameEngine.start();
 
@@ -38,15 +27,16 @@ public final class LeagueUHC extends JavaPlugin {
         this.getCommand("uhc").setExecutor(command);
         this.getCommand("uhc").setTabCompleter(command);
 
+        CommandUHC.pregenManager.unloadAndDeleteWorld();
+
         this.getLogger().info("==== LeagueUHC READY ====");
     }
 
     @Override
     public void onDisable() {
-        if (this.gameEngine != null) {
-            this.gameEngine.stop();
-            GameHelper.onDisable();
-        };
+        Bukkit.getWhitelistedPlayers().forEach(players -> players.setWhitelisted(false));
+
+        if (this.gameEngine != null) this.gameEngine.stop();
     }
 
     public static LeagueUHC getInstance() {

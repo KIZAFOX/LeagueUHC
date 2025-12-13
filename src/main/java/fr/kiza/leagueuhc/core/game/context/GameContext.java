@@ -1,15 +1,19 @@
 package fr.kiza.leagueuhc.core.game.context;
 
-import fr.kiza.leagueuhc.core.game.scenario.Scenario;
+import fr.kiza.leagueuhc.core.api.champion.Champion;
+import fr.kiza.leagueuhc.core.api.champion.ChampionRegistry;
+import fr.kiza.leagueuhc.core.api.scenario.Scenario;
+import fr.kiza.leagueuhc.core.api.scenario.ScenarioType;
 import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
-import fr.kiza.leagueuhc.managers.commands.CommandUHC;
 import org.bukkit.potion.PotionEffectType;
 
 import java.util.*;
 
 public class GameContext {
 
-    private int maxPlayers, countdown;
+    public static final int PLAYER_MAX = 32, COUNTDOWN = 10;
+
+    private int countdown = COUNTDOWN;
     private boolean isPaused;
 
     private final Map<UUID, Integer> playerScores;
@@ -17,13 +21,14 @@ public class GameContext {
     private final Set<UUID> allPlayers;
     private final Map<String, Object> gameData;
 
-    private final Set<Scenario> activeScenarios;
-    private final Map<Scenario, Integer> scenarioPercentages;
+    private final Set<String> activeScenarios;
+    private final Map<String, Integer> scenarioPercentages;
+
     private final Map<PotionEffectType, Integer> effectPercentages;
 
+    private final Set<Champion> enabledChampions = new HashSet<>();
+
     public GameContext() {
-        this.maxPlayers = 32;
-        this.countdown = 10;
         this.isPaused = false;
 
         this.playerScores = new HashMap<>();
@@ -38,13 +43,11 @@ public class GameContext {
         this.effectPercentages.put(PotionEffectType.INCREASE_DAMAGE, 20);
         this.effectPercentages.put(PotionEffectType.DAMAGE_RESISTANCE, 20);
         this.effectPercentages.put(PotionEffectType.SPEED, 20);
-
-        for (Scenario scenario : Scenario.values()) {
-            if (scenario.hasPercentage()) {
-                scenarioPercentages.put(scenario, 100);
-            }
-        }
     }
+
+    // ========================
+    // Effects
+    // ========================
 
     public void resetEffects() {
         this.effectPercentages.put(PotionEffectType.INCREASE_DAMAGE, 20);
@@ -62,7 +65,7 @@ public class GameContext {
 
     public int getEffectLevel(PotionEffectType type) {
         int percentage = getEffectPercentage(type);
-        if (percentage == 0) return -1; // Désactivé
+        if (percentage == 0) return -1;
         return Math.max(0, (percentage / 20) - 1);
     }
 
@@ -70,20 +73,23 @@ public class GameContext {
         return getEffectPercentage(type) > 0;
     }
 
+    // ========================
+    // Players
+    // ========================
 
-    public void addPlayer(final UUID playerUuid) {
+    public void addPlayer(UUID playerUuid) {
         this.allPlayers.add(playerUuid);
         this.alivePlayers.add(playerUuid);
         this.playerScores.put(playerUuid, 0);
     }
 
-    public void removePlayer(final UUID playerUuid) {
+    public void removePlayer(UUID playerUuid) {
         this.allPlayers.remove(playerUuid);
         this.alivePlayers.remove(playerUuid);
         this.playerScores.remove(playerUuid);
     }
 
-    public boolean hasPlayer(final UUID playerUuid) {
+    public boolean hasPlayer(UUID playerUuid) {
         return this.allPlayers.contains(playerUuid);
     }
 
@@ -99,7 +105,7 @@ public class GameContext {
         return this.allPlayers.size();
     }
 
-    public void setPlayerAlive(final UUID playerUuid, boolean alive) {
+    public void setPlayerAlive(UUID playerUuid, boolean alive) {
         if (alive) {
             this.alivePlayers.add(playerUuid);
         } else {
@@ -107,16 +113,20 @@ public class GameContext {
         }
     }
 
-    public int getScore(final UUID playerUuid) {
+    // ========================
+    // Scores
+    // ========================
+
+    public int getScore(UUID playerUuid) {
         return this.playerScores.getOrDefault(playerUuid, 0);
     }
 
-    public void setScore(final UUID playerUuid, final int score) {
+    public void setScore(UUID playerUuid, int score) {
         playerScores.put(playerUuid, score);
     }
 
-    public void addScore(final UUID playerUuid, final int points) {
-        final int currentScore = this.getScore(playerUuid);
+    public void addScore(UUID playerUuid, int points) {
+        int currentScore = this.getScore(playerUuid);
         setScore(playerUuid, currentScore + points);
     }
 
@@ -124,48 +134,70 @@ public class GameContext {
         return new HashMap<>(this.playerScores);
     }
 
-    public void setData(final String key, final Object value) {
+    // ========================
+    // Game Data
+    // ========================
+
+    public void setData(String key, Object value) {
         this.gameData.put(key, value);
     }
 
-    public <T> T getData(final String key) {
+    @SuppressWarnings("unchecked")
+    public <T> T getData(String key) {
         return (T) this.gameData.get(key);
     }
 
-    public <T> T getData(final String key, final T defaultValue) {
-        final T value = this.getData(key);
+    public <T> T getData(String key, T defaultValue) {
+        T value = this.getData(key);
         return value != null ? value : defaultValue;
     }
 
-    public boolean isScenarioActive(Scenario scenario) {
-        return activeScenarios.contains(scenario);
+    // ========================
+    // Scenarios
+    // ========================
+
+    public boolean isScenarioActive(String id) {
+        return activeScenarios.contains(id.toLowerCase());
     }
 
-    public void addScenario(Scenario scenario) {
-        activeScenarios.add(scenario);
+    public boolean isScenarioActive(ScenarioType type) {
+        return isScenarioActive(type.getId());
     }
 
-    public void removeScenario(Scenario scenario) {
-        activeScenarios.remove(scenario);
+    public void addScenario(String id) {
+        activeScenarios.add(id.toLowerCase());
     }
 
-    public Set<Scenario> getActiveScenarios() {
+    public void addScenario(ScenarioType type) {
+        addScenario(type.getId());
+    }
+
+    public void removeScenario(String id) {
+        activeScenarios.remove(id.toLowerCase());
+    }
+
+    public void removeScenario(ScenarioType type) {
+        removeScenario(type.getId());
+    }
+
+    public Set<String> getActiveScenarioIds() {
         return new HashSet<>(activeScenarios);
     }
 
-    public int getScenarioPercentage(Scenario scenario) {
-        return scenarioPercentages.getOrDefault(scenario, 100);
+    public int getScenarioPercentage(String id) {
+        return scenarioPercentages.getOrDefault(id.toLowerCase(), 100);
     }
 
-    public void setScenarioPercentage(Scenario scenario, int percentage) {
-        scenarioPercentages.put(scenario, percentage);
+    public int getScenarioPercentage(ScenarioType type) {
+        return getScenarioPercentage(type.getId());
     }
 
-    public double getScenarioMultiplier(Scenario scenario) {
-        if (!isScenarioActive(scenario)) {
-            return 1.0;
-        }
-        return getScenarioPercentage(scenario) / 100.0;
+    public void setScenarioPercentage(String id, int value) {
+        scenarioPercentages.put(id.toLowerCase(), Math.max(0, Math.min(100, value)));
+    }
+
+    public void setScenarioPercentage(ScenarioType type, int value) {
+        setScenarioPercentage(type.getId(), value);
     }
 
     public void clearScenarios() {
@@ -173,72 +205,37 @@ public class GameContext {
         scenarioPercentages.clear();
     }
 
-    public void loadScenarios(Map<String, Object> config) {
-        clearScenarios();
+    // ========================
+    // Champions
+    // ========================
 
-        if (config.containsKey("scenarios")) {
-            Map<String, Object> scenariosData = (Map<String, Object>) config.get("scenarios");
-
-            for (String scenarioName : scenariosData.keySet()) {
-                Scenario scenario = Scenario.getByName(scenarioName);
-                if (scenario != null) {
-                    addScenario(scenario);
-
-                    if (scenario.hasPercentage()) {
-                        Object percentageObj = scenariosData.get(scenarioName);
-                        if (percentageObj instanceof Integer) {
-                            setScenarioPercentage(scenario, (Integer) percentageObj);
-                        }
-                    }
-                }
-            }
-        }
+    public boolean isChampionEnabled(Champion champion) {
+        return enabledChampions.contains(champion);
     }
 
-    /**
-     * Sauvegarde les scénarios dans une configuration
-     */
-    public Map<String, Object> saveScenarios() {
-        Map<String, Object> scenariosData = new HashMap<>();
-
-        for (Scenario scenario : activeScenarios) {
-            if (scenario.hasPercentage()) {
-                scenariosData.put(scenario.getName(), getScenarioPercentage(scenario));
-            } else {
-                scenariosData.put(scenario.getName(), true);
-            }
-        }
-
-        Map<String, Object> config = new HashMap<>();
-        config.put("scenarios", scenariosData);
-        return config;
+    public void enableChampion(Champion champion) {
+        enabledChampions.add(champion);
     }
 
-    public void reset() {
-        this.countdown = 10;
-        this.maxPlayers = 16;
-        this.isPaused = false;
-
-        this.playerScores.clear();
-        this.alivePlayers.clear();
-        this.allPlayers.clear();
-        this.gameData.clear();
-
-        this.clearScenarios();
-        this.resetEffects();
-
-        GameTimerManager.getInstance().reset();
-
-        if (CommandUHC.pregenManager != null) CommandUHC.pregenManager.resetPregen();
+    public void disableChampion(Champion champion) {
+        enabledChampions.remove(champion);
     }
 
-    public int getMaxPlayers() {
-        return maxPlayers;
+    public Set<Champion> getEnabledChampions() {
+        return Collections.unmodifiableSet(enabledChampions);
     }
 
-    public void setMaxPlayers(int maxPlayers) {
-        this.maxPlayers = maxPlayers;
+    public void enableAllChampions() {
+        enabledChampions.addAll(ChampionRegistry.getChampions());
     }
+
+    public void disableAllChampions() {
+        enabledChampions.clear();
+    }
+
+    // ========================
+    // Countdown / Pause
+    // ========================
 
     public int getCountdown() {
         return countdown;
@@ -258,5 +255,25 @@ public class GameContext {
 
     public void setPaused(boolean paused) {
         isPaused = paused;
+    }
+
+    // ========================
+    // Reset
+    // ========================
+
+    public void reset() {
+        this.countdown = COUNTDOWN;
+        this.isPaused = false;
+
+        this.playerScores.clear();
+        this.alivePlayers.clear();
+        this.allPlayers.clear();
+        this.gameData.clear();
+
+        this.clearScenarios();
+        this.resetEffects();
+        this.disableAllChampions();
+
+        GameTimerManager.getInstance().reset();
     }
 }

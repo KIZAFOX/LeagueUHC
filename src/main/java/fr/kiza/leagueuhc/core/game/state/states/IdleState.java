@@ -4,15 +4,13 @@ import fr.kiza.leagueuhc.core.api.packets.builder.TitleBuilder;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
 import fr.kiza.leagueuhc.core.game.event.PvPEvent;
 import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
+import fr.kiza.leagueuhc.core.game.host.HostManager;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
 import fr.kiza.leagueuhc.utils.ItemBuilder;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.GameMode;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 
 import java.util.Collections;
@@ -32,11 +30,7 @@ public class IdleState extends BaseGameState {
     }
 
     @Override
-    public void onExit(GameContext context) {
-        broadcast(ChatColor.GREEN + "✔ Partie lancée par le host !");
-
-        context.setData("hostStarted", false);
-     }
+    public void onExit(GameContext context) { context.setData("hostStarted", false); }
 
     @Override
     public void update(GameContext context, long deltaTime) { }
@@ -52,10 +46,7 @@ public class IdleState extends BaseGameState {
                 context.removePlayer(input.getPlayer().getUniqueId());
                 break;
             case HOST_START:
-                if (context.getPlayerCount() == 1 || context.getPlayerCount() >= 1) {
-                    context.setData("hostStarted", true);
-                    input.getPlayer().sendMessage(ChatColor.GREEN + "✔ Lancement de la partie avec " + context.getPlayerCount() + " joueurs !");
-                }
+                if (context.getPlayerCount() == 1 || context.getPlayerCount() >= 1) context.setData("hostStarted", true);
                 break;
             default:
                 break;
@@ -88,13 +79,8 @@ public class IdleState extends BaseGameState {
         player.getInventory().setArmorContents(null);
         player.getInventory().clear();
 
-        if (player.isOp()) {
-            player.getInventory().setItem(8,
-                    new ItemBuilder(Material.REDSTONE_TORCH_ON)
-                            .setName(ChatColor.RED + "" + ChatColor.BOLD + "Settings")
-                            .setLore(Collections.singletonList(ChatColor.GRAY + "Clic droit pour les paramètres"))
-                            .toItemStack()
-            );
-        }
+        player.teleport(new Location(Bukkit.getWorlds().get(0), 0, 100, 0));
+
+        HostManager.giveItem(player);
     }
 }

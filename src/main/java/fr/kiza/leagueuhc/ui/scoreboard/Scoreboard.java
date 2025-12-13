@@ -1,6 +1,8 @@
 package fr.kiza.leagueuhc.ui.scoreboard;
 
 import fr.kiza.leagueuhc.LeagueUHC;
+import fr.kiza.leagueuhc.core.game.context.GameContext;
+import fr.kiza.leagueuhc.core.game.host.HostManager;
 import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
 import fr.mrmicky.fastboard.FastBoard;
 
@@ -60,8 +62,8 @@ public class Scoreboard implements Listener {
             case "PLAYING":
                 this.updatePlayingBoard(board);
                 break;
-            case "FINISHED":
-                this.updateFinishedBoard(board);
+            case "ENDING":
+                this.updateEndingBoard(board);
             default:
                 this.updateDefaultBoard(board);
                 break;
@@ -70,19 +72,22 @@ public class Scoreboard implements Listener {
 
     private void updatePlayingBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
-        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " uhc-server");
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " lol-uhc");
         lines.add("");
         lines.add(ChatColor.WHITE + "  Durée: " + ChatColor.YELLOW + GameTimerManager.getInstance().getFormattedTime());
-        lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getMaxPlayers());
+        lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + GameContext.PLAYER_MAX);
+        lines.add("");
+        lines.add(ChatColor.WHITE + "  Episode: " + ChatColor.YELLOW + this.instance.getGameEngine().getGameHelper().getManager().getDayCycleManager().getCurrentEpisode());
+        lines.add(ChatColor.WHITE + "  Bordure: " + ChatColor.YELLOW + "1000" + ChatColor.WHITE + "x" + ChatColor.YELLOW + "1000");
         lines.add("");
         lines.add(getAnimatedIP());
 
         board.updateLines(lines);
     }
 
-    private void updateFinishedBoard(final FastBoard board) {
+    private void updateEndingBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
-        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " uhc-server");
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " lol-uhc");
         lines.add("");
         lines.add(ChatColor.GRAY + "┃ En attente");
         lines.add(ChatColor.GRAY + "┃ du prochain");
@@ -95,10 +100,10 @@ public class Scoreboard implements Listener {
 
     private void updateDefaultBoard(final FastBoard board) {
         List<String> lines = new ArrayList<>();
-        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " uhc-server");
+        lines.add(this.getCurrentDate() + ChatColor.DARK_GRAY + " lol-uhc");
         lines.add("");
-        lines.add(ChatColor.WHITE + "  Host: " + ChatColor.RED + Bukkit.getServer().getOperators().stream().iterator().next().getName());
-        lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getMaxPlayers());
+        lines.add(ChatColor.WHITE + "  Host: " + ChatColor.RED + HostManager.getFirstHostName());
+        lines.add(ChatColor.WHITE + "  Joueurs: " + ChatColor.YELLOW + this.instance.getGameEngine().getContext().getPlayers().size() + ChatColor.WHITE + "/" + ChatColor.YELLOW + GameContext.PLAYER_MAX);
         lines.add("");
         lines.add(getAnimatedIP());
 

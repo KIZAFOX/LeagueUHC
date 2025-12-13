@@ -8,6 +8,7 @@ import fr.kiza.leagueuhc.core.game.context.GameContext;
 import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
 import fr.kiza.leagueuhc.core.game.event.MovementFreezeEvent;
 import fr.kiza.leagueuhc.core.game.helper.InventoryHelper;
+import fr.kiza.leagueuhc.core.game.helper.pregen.PregenManager;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.mechanics.GameMechanicsManager;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
@@ -15,7 +16,9 @@ import fr.kiza.leagueuhc.core.game.state.GameState;
 import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
 
 import org.bukkit.*;
+import org.bukkit.block.Chest;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -29,12 +32,11 @@ public class PlayingState extends BaseGameState {
 
     protected final LeagueUHC instance = LeagueUHC.getInstance();
 
-    // Map pour stocker les informations de déconnexion
     private final Map<UUID, DisconnectedPlayerData> disconnectedPlayers = new HashMap<>();
-    // Map pour stocker les tâches de timeout
     private final Map<UUID, BukkitTask> reconnectTasks = new HashMap<>();
 
-    private static final int RECONNECT_TIMEOUT = 30; // 30 secondes
+    private static final int RECONNECT_TIMEOUT = 60 * 5; //5 minutes
+    private static final int MAP_RADIUS = 500;
 
     public PlayingState() {
         super(GameState.PLAYING.getName());
@@ -44,6 +46,10 @@ public class PlayingState extends BaseGameState {
     public void onEnter(GameContext context) {
         new GameMechanicsManager().init();
 
+        this.instance.getGameEngine().getGameHelper().getManager().getDayCycleManager().start(Bukkit.getWorld("uhc_world"));
+
+        context.getActiveScenarioIds().forEach(id -> this.instance.getGameEngine().getGameHelper().getManager().getScenarioManager().enable(id));
+
         context.getPlayers().forEach(players -> context.setPlayerAlive(players, true));
 
         this.broadcast("");
@@ -52,10 +58,10 @@ public class PlayingState extends BaseGameState {
         this.broadcast(ChatColor.GOLD + "" + ChatColor.BOLD + "=============================");
         this.broadcast("");
 
-        final World uhcWorld = Bukkit.getWorld("uhc-world");
+        final World uhcWorld = Bukkit.getWorld("uhc_world");
 
         if (uhcWorld == null) {
-            Bukkit.getLogger().severe("[LeagueUHC] Le monde uhc-world n'existe pas !");
+            Bukkit.getLogger().severe("[LeagueUHC] Le monde uhc_world n'existe pas !");
             Bukkit.getOnlinePlayers().forEach(players -> players.sendMessage(ChatColor.RED + "[UHC] Le monde UHC n'a pas pu être chargé !"));
             return;
         }
@@ -78,6 +84,7 @@ public class PlayingState extends BaseGameState {
         final int[] index = {0};
         final List<Location> usedLocations = new ArrayList<>();
         final double minDistance = 10.0;
+        final double safeRadius = MAP_RADIUS - 20;
 
         players.forEach(player -> player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20 * (totalPlayers + 2), 1, false, false)));
 
@@ -97,7 +104,6 @@ public class PlayingState extends BaseGameState {
                 final Player player = players.get(index[0]);
 
                 if (player != null && player.isOnline()) {
-                    final double safeRadius = (uhcWorld.getWorldBorder().getSize() / 2.0) - 20;
                     final Location randomLocation = randomLocation(uhcWorld, safeRadius, usedLocations, minDistance);
 
                     usedLocations.add(randomLocation);
@@ -116,7 +122,7 @@ public class PlayingState extends BaseGameState {
                             new BukkitRunnable() {
                                 @Override
                                 public void run() {
-                                    if (!player.getLocation().getWorld().getName().equals("uhc-world")) {
+                                    if (!player.getLocation().getWorld().getName().equals("uhc_world")) {
                                         player.teleport(finalLoc);
                                     }
                                 }
@@ -126,7 +132,6 @@ public class PlayingState extends BaseGameState {
 
                     Bukkit.getOnlinePlayers().forEach(p -> new ActionBarBuilder().message(ChatColor.YELLOW + "Téléportation: " + ChatColor.GREEN + (index[0] + 1) + ChatColor.GRAY + "/" + ChatColor.GREEN + totalPlayers).send(p));
 
-                    player.sendMessage(ChatColor.GREEN + "✔ Vous avez été téléporté aléatoirement !");
                     player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.5f, 1.0f);
 
                     player.setGameMode(GameMode.SURVIVAL);
@@ -163,13 +168,13 @@ public class PlayingState extends BaseGameState {
                         new BukkitRunnable() {
                             @Override
                             public void run() {
-                                ChampionAssignment.assignChampionsFromRegistry(players);
+                                ChampionAssignment.assignFromRegistry(players);
                             }
                         }.runTaskLater(LeagueUHC.getInstance(), 20L * 10);
                     }
 
                     TitleBuilder.create()
-                            .title(ChatColor.GOLD + "⚔ " + ChatColor.YELLOW + "LEAGUE UHC" + ChatColor.GOLD + " ⚔")
+                            .title(ChatColor.GOLD + "⚔ " + ChatColor.YELLOW + "LeagueUHC" + ChatColor.GOLD + " ⚔")
                             .subTitle(ChatColor.GRAY + "Bonne chance !")
                             .times(10, 70, 20)
                             .send(player);
@@ -184,7 +189,10 @@ public class PlayingState extends BaseGameState {
     public void onExit(GameContext context) {
         GameTimerManager.getInstance().stop();
 
-        // Nettoyer toutes les tâches de reconnexion
+        this.instance.getGameEngine().getGameHelper().getManager().getDayCycleManager().stop();
+
+        context.getActiveScenarioIds().forEach(id -> this.instance.getGameEngine().getGameHelper().getManager().getScenarioManager().disable(id));
+
         reconnectTasks.values().forEach(BukkitTask::cancel);
         reconnectTasks.clear();
         disconnectedPlayers.clear();
@@ -202,18 +210,15 @@ public class PlayingState extends BaseGameState {
                 final Player joiningPlayer = input.getPlayer();
                 final UUID joiningUUID = joiningPlayer.getUniqueId();
 
-                // Vérifier si le joueur était déconnecté
                 if (disconnectedPlayers.containsKey(joiningUUID)) {
                     DisconnectedPlayerData data = disconnectedPlayers.get(joiningUUID);
 
-                    // Annuler la tâche de timeout
                     BukkitTask task = reconnectTasks.get(joiningUUID);
                     if (task != null) {
                         task.cancel();
                         reconnectTasks.remove(joiningUUID);
                     }
 
-                    // Restaurer le joueur
                     restorePlayer(joiningPlayer, data);
                     disconnectedPlayers.remove(joiningUUID);
 
@@ -223,7 +228,6 @@ public class PlayingState extends BaseGameState {
                     joiningPlayer.sendMessage(ChatColor.YELLOW + "Tes items et ta position ont été restaurés.");
                     joiningPlayer.sendMessage("");
                 } else {
-                    // Nouveau joueur qui rejoint après le début
                     joiningPlayer.setGameMode(GameMode.SPECTATOR);
                     joiningPlayer.sendMessage(ChatColor.GRAY + "" + ChatColor.ITALIC + "La partie a déjà commencé...");
                 }
@@ -233,7 +237,6 @@ public class PlayingState extends BaseGameState {
                 final Player deadPlayer = input.getPlayer();
                 final UUID deadPlayerUUID = deadPlayer.getUniqueId();
 
-                // Si le joueur était en attente de reconnexion, annuler
                 if (disconnectedPlayers.containsKey(deadPlayerUUID)) {
                     BukkitTask task = reconnectTasks.get(deadPlayerUUID);
                     if (task != null) {
@@ -247,11 +250,41 @@ public class PlayingState extends BaseGameState {
 
                 this.broadcast(ChatColor.RED + "☠ " + deadPlayer.getName() + ChatColor.GRAY + " est mort !");
 
-                Bukkit.getOnlinePlayers().forEach(players ->
-                        players.playSound(players.getLocation(), Sound.WITHER_SPAWN, 0.5f, 1.0f)
-                );
+                Bukkit.getOnlinePlayers().forEach(players -> players.playSound(players.getLocation(), Sound.WITHER_SPAWN, 0.5f, 1.0f));
 
-                final Location deathLocation = deadPlayer.getLocation().clone().add(0, 1, 0);
+                final Location deathLocation = deadPlayer.getLocation().clone();
+                final List<ItemStack> items = input.getDeathDrops();
+
+                if (items != null && !items.isEmpty()) {
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            Location chestLoc = deathLocation.clone();
+
+                            while (chestLoc.getBlock().getType() == Material.AIR && chestLoc.getY() > 1) {
+                                chestLoc.subtract(0, 1, 0);
+                            }
+                            chestLoc.add(0, 1, 0);
+
+                            if (chestLoc.getBlock().getType() == Material.AIR) {
+                                chestLoc.getBlock().setType(Material.CHEST);
+
+                                if (chestLoc.getBlock().getState() instanceof Chest) {
+                                    final Chest chest = (Chest) chestLoc.getBlock().getState();
+                                    final Inventory chestInventory = chest.getInventory();
+
+                                    for (ItemStack item : items) {
+                                        if (item != null && item.getType() != Material.AIR) {
+                                            chestInventory.addItem(item);
+                                        }
+                                    }
+
+                                    chest.update();
+                                }
+                            }
+                        }
+                    }.runTaskLater(LeagueUHC.getInstance(), 60L);
+                }
 
                 new BukkitRunnable() {
                     @Override
@@ -265,7 +298,7 @@ public class PlayingState extends BaseGameState {
                             public void run() {
                                 if (!deadPlayer.isOnline()) return;
 
-                                deadPlayer.teleport(deathLocation);
+                                deadPlayer.teleport(deathLocation.clone().add(0, 1, 0));
                                 deadPlayer.setGameMode(GameMode.SPECTATOR);
                                 deadPlayer.playSound(deathLocation, Sound.BAT_TAKEOFF, 0.8f, 1.0f);
                                 deadPlayer.sendMessage(ChatColor.GRAY + "" + ChatColor.ITALIC + "Tu es maintenant en mode spectateur.");
@@ -279,9 +312,7 @@ public class PlayingState extends BaseGameState {
                 final Player leavingPlayer = input.getPlayer();
                 final UUID leavingUUID = leavingPlayer.getUniqueId();
 
-                // Seulement gérer la reconnexion si le joueur est vivant
                 if (context.getAlivePlayers().contains(leavingUUID)) {
-                    // Sauvegarder les données du joueur
                     DisconnectedPlayerData playerData = new DisconnectedPlayerData(
                             leavingPlayer.getLocation().clone(),
                             leavingPlayer.getInventory().getContents().clone(),
@@ -295,14 +326,12 @@ public class PlayingState extends BaseGameState {
 
                     disconnectedPlayers.put(leavingUUID, playerData);
 
-                    // Créer une tâche pour gérer le timeout
                     BukkitTask timeoutTask = new BukkitRunnable() {
                         int timeLeft = RECONNECT_TIMEOUT;
 
                         @Override
                         public void run() {
                             if (timeLeft <= 0) {
-                                // Timeout atteint, éliminer le joueur
                                 context.setPlayerAlive(leavingUUID, false);
                                 context.removePlayer(leavingUUID);
                                 disconnectedPlayers.remove(leavingUUID);
@@ -314,53 +343,48 @@ public class PlayingState extends BaseGameState {
                                 return;
                             }
 
-                            // Afficher un message toutes les 10 secondes
-                            if (timeLeft == RECONNECT_TIMEOUT || timeLeft == 20 || timeLeft == 10) {
-                                broadcast(ChatColor.YELLOW + "⚠ " + leavingPlayer.getName() + " a " + timeLeft + " secondes pour se reconnecter...");
-                            }
-
                             timeLeft--;
                         }
                     }.runTaskTimer(LeagueUHC.getInstance(), 0L, 20L);
 
                     reconnectTasks.put(leavingUUID, timeoutTask);
 
-                    this.broadcast(ChatColor.YELLOW + "⚠ " + leavingPlayer.getName() + " s'est déconnecté (30s pour se reconnecter)");
+                    this.broadcast(ChatColor.YELLOW + "⚠ " + leavingPlayer.getName() + " s'est déconnecté (5min pour se reconnecter)");
                 } else {
-                    // Joueur spectateur ou déjà mort
                     context.removePlayer(leavingUUID);
                 }
                 break;
 
+            case PLAYER_DAMAGE:
+                break;
             default:
                 break;
         }
     }
 
     private void restorePlayer(Player player, DisconnectedPlayerData data) {
-        // Téléporter le joueur à sa position
         player.teleport(data.location);
 
-        // Restaurer l'inventaire
         player.getInventory().setContents(data.inventory);
         player.getInventory().setArmorContents(data.armor);
 
-        // Restaurer les stats
         player.setHealth(Math.min(data.health, player.getMaxHealth()));
         player.setFoodLevel(data.foodLevel);
         player.setLevel(data.level);
         player.setExp(data.exp);
 
-        // Restaurer les effets de potion
         player.getActivePotionEffects().forEach(effect -> player.removePotionEffect(effect.getType()));
         data.potionEffects.forEach(player::addPotionEffect);
 
-        // Remettre en mode survie
         player.setGameMode(GameMode.SURVIVAL);
 
-        // Effets visuels
         player.playSound(player.getLocation(), Sound.ENDERMAN_TELEPORT, 1.0f, 1.0f);
-        player.sendTitle(ChatColor.GREEN + "✔ Reconnecté", ChatColor.YELLOW + "Bienvenue !");
+
+        TitleBuilder.create()
+                .title("")
+                .subTitle(ChatColor.GREEN + "✔ Reconnecté")
+                .times(20, 40, 20)
+                .send(player);
     }
 
     private Location randomLocation(final World world, final double borderRadius, final List<Location> usedLocations, final double minDistance) {
@@ -386,7 +410,7 @@ public class PlayingState extends BaseGameState {
 
             final Material block = world.getBlockAt((int) x, y - 1, (int) z).getType();
 
-            if(block.isSolid() &&
+            if (block.isSolid() &&
                     block != Material.WATER && block != Material.LAVA && block != Material.CACTUS &&
                     block != Material.FIRE) {
 

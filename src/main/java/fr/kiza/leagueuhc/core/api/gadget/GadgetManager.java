@@ -6,14 +6,14 @@ public class GadgetManager {
 
     protected static LeagueUHC instance;
 
-    public static CrownManager crownManager;
+    public CrownManager crownManager;
 
-    public static void  onEnable(LeagueUHC inst) {
+    public void onEnable(LeagueUHC inst) {
         instance = inst;
         crownManager = new CrownManager(instance);
     }
 
-    public static void onDisable() {
+    public void onDisable() {
         if (crownManager != null) crownManager.disableAll();
     }
 }

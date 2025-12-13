@@ -1,119 +1,94 @@
 package fr.kiza.leagueuhc.core.game.gui.scenarios;
 
 import fr.kiza.leagueuhc.LeagueUHC;
-import fr.kiza.leagueuhc.core.game.scenario.Scenario;
-import fr.kiza.leagueuhc.core.game.context.GameContext;
+import fr.kiza.leagueuhc.core.api.scenario.Scenario;
+import fr.kiza.leagueuhc.core.api.scenario.ScenarioManager;
 import fr.kiza.leagueuhc.core.api.gui.helper.GuiBuilder;
 import fr.kiza.leagueuhc.utils.ItemBuilder;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 public class ScenarioPercentageGUI {
 
     private final LeagueUHC instance;
-    private final GameContext context;
+    private final ScenarioManager scenarioManager;
     private final Scenario scenario;
 
-    public ScenarioPercentageGUI(final LeagueUHC instance, final Player player, final Scenario scenario) {
+    public ScenarioPercentageGUI(LeagueUHC instance, Player player, Scenario scenario) {
         this.instance = instance;
-        this.context = instance.getGameEngine().getContext();
+        this.scenarioManager = instance.getGameEngine().getGameHelper().getManager().getScenarioManager();
         this.scenario = scenario;
 
         buildGUI(player);
+        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 1.0f, 1.0f);
     }
 
-    private void buildGUI(final Player player) {
-        boolean isActive = context.isScenarioActive(scenario);
-        int currentPercentage = context.getScenarioPercentage(scenario);
-
+    private void buildGUI(Player player) {
         GuiBuilder gui = new GuiBuilder(instance)
-                .title(ChatColor.LIGHT_PURPLE + scenario.getName())
+                .title(ChatColor.GOLD + scenario.getName() + " - Pourcentage")
                 .size(45);
 
-        ItemBuilder statusBuilder = new ItemBuilder(Material.PAPER)
-                .setName(ChatColor.YELLOW + "Statut & Pourcentage")
+        int currentPercentage = scenarioManager.getPercentage(scenario.getId());
+        boolean isActive = scenarioManager.isActive(scenario.getId());
+
+        // Info centrale
+        gui.button(13, new ItemBuilder(scenario.getIcon())
+                .setName(ChatColor.YELLOW + scenario.getName())
                 .setLore(Arrays.asList(
-                        ChatColor.GRAY + "Statut: " + (isActive ? ChatColor.GREEN + "✓ Activé" : ChatColor.RED + "✗ Désactivé"),
-                        ChatColor.GRAY + "Pourcentage: " + ChatColor.YELLOW + currentPercentage + "%",
+                        ChatColor.GRAY + scenario.getDescription(),
                         "",
-                        ChatColor.DARK_GRAY + scenario.getDescription(),
+                        ChatColor.WHITE + "Pourcentage actuel: " + ChatColor.GOLD + currentPercentage + "%",
                         "",
-                        ChatColor.GRAY + "Range: 0-500%"
-                ));
-
-        if (isActive) {
-            statusBuilder.addEnchant(Enchantment.DURABILITY, 1);
-            statusBuilder.hideEnchant();
-        }
-
-        gui.button(4, statusBuilder.toItemStack(), (p, inv) -> { });
-
-        // Bouton Toggle Activation
-        gui.button(22, new ItemBuilder(isActive ? Material.REDSTONE : Material.EMERALD)
-                .setName(isActive ? ChatColor.RED + "Désactiver" : ChatColor.GREEN + "Activer")
-                .setLore(Collections.singletonList(
-                        isActive ? ChatColor.YELLOW + "Cliquer pour désactiver" : ChatColor.YELLOW + "Cliquer pour activer"
+                        isActive ? ChatColor.GREEN + "✓ Activé" : ChatColor.RED + "✗ Désactivé"
                 ))
-                .toItemStack(), (p, inv) -> {
-            if (isActive) {
-                context.removeScenario(scenario);
-                p.sendMessage(ChatColor.RED + "[UHC] Scénario désactivé: " + ChatColor.YELLOW + scenario.getName());
-                p.playSound(p.getLocation(), Sound.ITEM_BREAK, 1.0f, 1.0f);
-            } else {
-                context.addScenario(scenario);
-                p.sendMessage(ChatColor.GREEN + "[UHC] Scénario activé: " + ChatColor.YELLOW + scenario.getName());
-                p.playSound(p.getLocation(), Sound.LEVEL_UP, 1.0f, 1.5f);
-            }
-            p.closeInventory();
-            new ScenarioPercentageGUI(instance, p, scenario);
+                .toItemStack(), (p, inv) -> {});
+
+        // Boutons de diminution
+        gui.button(19, createPercentageButton(-50, currentPercentage), (p, inv) -> {
+            adjustPercentage(p, -50);
+        });
+        gui.button(20, createPercentageButton(-10, currentPercentage), (p, inv) -> {
+            adjustPercentage(p, -10);
+        });
+        gui.button(21, createPercentageButton(-1, currentPercentage), (p, inv) -> {
+            adjustPercentage(p, -1);
         });
 
-        // ========== BOUTONS D'AJOUT ==========
-        gui.button(28, createButton(Material.EMERALD_BLOCK, ChatColor.GREEN + "+100%", "+100", currentPercentage, 100, 500).toItemStack(),
-                (p, inv) -> modifyPercentage(p, 100));
+        // Boutons d'augmentation
+        gui.button(23, createPercentageButton(+1, currentPercentage), (p, inv) -> {
+            adjustPercentage(p, +1);
+        });
+        gui.button(24, createPercentageButton(+10, currentPercentage), (p, inv) -> {
+            adjustPercentage(p, +10);
+        });
+        gui.button(25, createPercentageButton(+50, currentPercentage), (p, inv) -> {
+            adjustPercentage(p, +50);
+        });
 
-        gui.button(29, createButton(Material.EMERALD, ChatColor.GREEN + "+50%", "+50", currentPercentage, 50, 500).toItemStack(),
-                (p, inv) -> modifyPercentage(p, 50));
+        // Toggle activation
+        gui.button(31, new ItemBuilder(isActive ? Material.REDSTONE_BLOCK : Material.EMERALD_BLOCK)
+                .setName(isActive ? ChatColor.RED + "Désactiver" : ChatColor.GREEN + "Activer")
+                .setLore(Arrays.asList(
+                        ChatColor.GRAY + "Cliquez pour " + (isActive ? "désactiver" : "activer"),
+                        ChatColor.GRAY + "ce scénario"
+                ))
+                .toItemStack(), (p, inv) -> {
+            scenarioManager.toggle(scenario.getId());
+            p.closeInventory();
+            new ScenarioPercentageGUI(instance, p, scenario);
 
-        gui.button(30, createButton(Material.SLIME_BALL, ChatColor.GREEN + "+10%", "+10", currentPercentage, 10, 500).toItemStack(),
-                (p, inv) -> modifyPercentage(p, 10));
-
-        gui.button(32, createButton(Material.REDSTONE, ChatColor.RED + "-10%", "-10", currentPercentage, -10, 0).toItemStack(),
-                (p, inv) -> modifyPercentage(p, -10));
-
-        gui.button(33, createButton(Material.REDSTONE_BLOCK, ChatColor.RED + "-50%", "-50", currentPercentage, -50, 0).toItemStack(),
-                (p, inv) -> modifyPercentage(p, -50));
-
-        gui.button(34, createButton(Material.COAL_BLOCK, ChatColor.RED + "-100%", "-100", currentPercentage, -100, 0).toItemStack(),
-                (p, inv) -> modifyPercentage(p, -100));
-
-        // Valeurs prédéfinies
-        gui.button(19, new ItemBuilder(Material.IRON_BLOCK)
-                .setName(ChatColor.GRAY + "0%")
-                .setLore(Collections.singletonList(ChatColor.YELLOW + "Définir à 0%"))
-                .toItemStack(), (p, inv) -> setPercentageTo(p, 0));
-
-        gui.button(20, new ItemBuilder(Material.GOLD_BLOCK)
-                .setName(ChatColor.YELLOW + "100%")
-                .setLore(Collections.singletonList(ChatColor.YELLOW + "Définir à 100%"))
-                .toItemStack(), (p, inv) -> setPercentageTo(p, 100));
-
-        gui.button(24, new ItemBuilder(Material.DIAMOND_BLOCK)
-                .setName(ChatColor.AQUA + "200%")
-                .setLore(Collections.singletonList(ChatColor.YELLOW + "Définir à 200%"))
-                .toItemStack(), (p, inv) -> setPercentageTo(p, 200));
-
-        gui.button(25, new ItemBuilder(Material.EMERALD_BLOCK)
-                .setName(ChatColor.GREEN + "500%")
-                .setLore(Collections.singletonList(ChatColor.YELLOW + "Définir à 500%"))
-                .toItemStack(), (p, inv) -> setPercentageTo(p, 500));
+            if (scenarioManager.isActive(scenario.getId())) {
+                p.sendMessage(ChatColor.GREEN + "[UHC] Scénario activé: " + ChatColor.YELLOW + scenario.getName());
+                p.playSound(p.getLocation(), Sound.LEVEL_UP, 1.0f, 1.5f);
+            } else {
+                p.sendMessage(ChatColor.RED + "[UHC] Scénario désactivé: " + ChatColor.YELLOW + scenario.getName());
+                p.playSound(p.getLocation(), Sound.ITEM_BREAK, 1.0f, 1.0f);
+            }
+        });
 
         // Bouton Retour
         gui.button(40, new ItemBuilder(Material.ARROW)
@@ -129,52 +104,36 @@ public class ScenarioPercentageGUI {
                 gui.button(i, new ItemBuilder(Material.STAINED_GLASS_PANE)
                         .setDurability((short) 15)
                         .setName(" ")
-                        .toItemStack(), (p, inv) -> { });
+                        .toItemStack(), (p, inv) -> {});
             }
         }
 
         gui.build().open(player);
     }
 
-    private ItemBuilder createButton(Material material, String name, String change, int current, int delta, int limit) {
-        int newValue = current + delta;
-        boolean canApply = (delta > 0 && newValue <= limit) || (delta < 0 && newValue >= limit);
+    private org.bukkit.inventory.ItemStack createPercentageButton(int delta, int current) {
+        boolean isIncrease = delta > 0;
+        Material mat = isIncrease ? Material.STAINED_GLASS_PANE : Material.STAINED_GLASS_PANE;
+        short durability = isIncrease ? (short) 5 : (short) 14; // Lime : Red
 
-        return new ItemBuilder(material)
-                .setName(name)
+        String prefix = isIncrease ? "+" : "";
+        int newValue = Math.max(0, Math.min(100, current + delta));
+
+        return new ItemBuilder(mat)
+                .setDurability(durability)
+                .setName((isIncrease ? ChatColor.GREEN : ChatColor.RED) + prefix + delta + "%")
                 .setLore(Arrays.asList(
-                        ChatColor.GRAY + "Changer de: " + ChatColor.YELLOW + change + "%",
-                        ChatColor.GRAY + "Nouvelle valeur: " + ChatColor.YELLOW + newValue + "%",
-                        "",
-                        canApply ? ChatColor.GREEN + "✓ Cliquer pour appliquer" : ChatColor.RED + "✗ Limite atteinte"
-                ));
+                        ChatColor.GRAY + "Nouveau: " + ChatColor.WHITE + newValue + "%"
+                ))
+                .toItemStack();
     }
 
-    private void modifyPercentage(Player player, int delta) {
-        int current = context.getScenarioPercentage(scenario);
-        int newValue = current + delta;
+    private void adjustPercentage(Player player, int delta) {
+        int current = scenarioManager.getPercentage(scenario.getId());
+        int newValue = Math.max(0, Math.min(100, current + delta));
 
-        if (newValue < 0 || newValue > 500) {
-            player.sendMessage(ChatColor.RED + "[UHC] Valeur hors limites ! (0-500%)");
-            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 1.0f, 1.0f);
-            return;
-        }
-
-        context.setScenarioPercentage(scenario, newValue);
-        player.sendMessage(ChatColor.GREEN + "[UHC] Pourcentage modifié: " + ChatColor.YELLOW + newValue + "%");
-        player.playSound(player.getLocation(), Sound.NOTE_PLING, 1.0f, 1.5f);
-
-        player.closeInventory();
-        new ScenarioPercentageGUI(instance, player, scenario);
-    }
-
-    private void setPercentageTo(Player player, int value) {
-        context.setScenarioPercentage(scenario, value);
-        player.sendMessage(ChatColor.GREEN + "[UHC] Pourcentage défini à: " + ChatColor.YELLOW + value + "%");
-        player.playSound(player.getLocation(), Sound.NOTE_PLING, 1.0f, 2.0f);
-
-        Bukkit.broadcastMessage(ChatColor.YELLOW + "[UHC] " + player.getName() +
-                " a défini " + scenario.getName() + " à " + value + "%");
+        scenarioManager.setPercentage(scenario.getId(), newValue);
+        player.playSound(player.getLocation(), Sound.CLICK, 1.0f, delta > 0 ? 1.2f : 0.8f);
 
         player.closeInventory();
         new ScenarioPercentageGUI(instance, player, scenario);

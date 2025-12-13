@@ -4,27 +4,28 @@ import fr.kiza.leagueuhc.LeagueUHC;
 
 import fr.kiza.leagueuhc.core.api.gadget.RainbowWalk;
 
-import fr.kiza.leagueuhc.core.game.event.PvPEvent;
+import fr.kiza.leagueuhc.core.game.cycle.DayCycleManager;
 import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
 import fr.kiza.leagueuhc.core.game.event.MovementFreezeEvent;
 import fr.kiza.leagueuhc.core.game.gui.settings.SettingsGUI;
+import fr.kiza.leagueuhc.core.game.host.HostManager;
 import fr.kiza.leagueuhc.core.game.state.GameState;
 import org.bukkit.*;
-import org.bukkit.block.Chest;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.block.*;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.weather.ThunderChangeEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
@@ -36,9 +37,13 @@ public class GlobalListeners implements Listener {
     private boolean movementFrozen = false;
     private final Map<UUID, Location> frozenLocations = new HashMap<>();
 
+    private final World uhcWorld = Bukkit.getWorld("uhc_world");
+
     public GlobalListeners(LeagueUHC instance) {
         this.instance = instance;
         this.instance.getServer().getPluginManager().registerEvents(this, instance);
+
+        if (uhcWorld != null) DayCycleManager.forceDay(uhcWorld);
 
         GameEventBus.getInstance().subscribe(MovementFreezeEvent.class, event -> {
             this.movementFrozen = event.isFrozen();
@@ -51,53 +56,62 @@ public class GlobalListeners implements Listener {
         });
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void onPlayerTeleport(PlayerTeleportEvent event) {
-        if (event.getCause() == PlayerTeleportEvent.TeleportCause.UNKNOWN &&
-                event.getFrom().getWorld().getName().equals("uhc-world") &&
-                event.getTo().getWorld().getName().equals("world")) {
-
-            event.setCancelled(true);
-        }
-    }
-
     @EventHandler (priority = EventPriority.MONITOR)
     public void onLogin(final PlayerJoinEvent event) {
         event.setJoinMessage(null);
 
         final Player player = event.getPlayer();
+        final boolean wasPending = HostManager.isPendingHost(player.getName());
 
-        player.setGameMode(GameMode.ADVENTURE);
-        player.setFoodLevel(20);
-        player.setWalkSpeed(.20F);
-        player.setFlySpeed(.15F);
-        player.setAllowFlight(false);
-        player.setExp(0);
-        player.setLevel(0);
-        player.setMaxHealth(20.0D);
-        player.setHealth(player.getMaxHealth());
+        HostManager.onPlayerJoin(player);
 
-        final String currentState = this.instance.getGameEngine().getCurrentState();
-        if (!currentState.equals(GameState.PLAYING.getName()) &&
-                !currentState.equals(GameState.STARTING.getName())) {
-            player.teleport(new Location(Bukkit.getWorlds().get(0), 0, 100, 0));
+        if (wasPending) {
+            player.sendMessage(ChatColor.GREEN + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+            player.sendMessage(ChatColor.GOLD + "  ⚔ " + ChatColor.BOLD + "HOST DÉSIGNÉ" + ChatColor.GOLD + " ⚔");
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GRAY + "  Vous avez été désigné comme host !");
+            player.sendMessage(ChatColor.GRAY + "  Vous pouvez maintenant gérer la partie.");
+            player.sendMessage(ChatColor.GREEN + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+            Bukkit.broadcastMessage(ChatColor.GOLD + "[UHC] " + ChatColor.YELLOW + player.getName() + ChatColor.GOLD + " est maintenant host de la partie !");
+        } else if (HostManager.isHost(player)) {
+            player.sendMessage(ChatColor.GREEN + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
+            player.sendMessage(ChatColor.GOLD + "  ⚔ " + ChatColor.BOLD + "HOST" + ChatColor.GOLD + " ⚔");
+            player.sendMessage("");
+            player.sendMessage(ChatColor.GRAY + "  Vous êtes host de cette partie !");
+            player.sendMessage(ChatColor.GRAY + "  Utilisez la torche pour ouvrir les settings.");
+            player.sendMessage(ChatColor.GREEN + "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬");
         }
     }
 
     @EventHandler (priority = EventPriority.MONITOR)
-    public void onLogout(final PlayerQuitEvent event) {
-        event.setQuitMessage(null);
-    }
+    public void onLogout(final PlayerQuitEvent event) { event.setQuitMessage(null); }
 
     @EventHandler (priority = EventPriority.MONITOR)
     public void onPlayerInteract(final PlayerInteractEvent event) {
         final Player player = event.getPlayer();
         final ItemStack itemStack = event.getItem();
 
+        if (itemStack == null) return;
+
+        if (isPlaying()) {
+            if (itemStack.getType() == Material.ENDER_PEARL) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "✘ Les ender pearls sont désactivées !");
+                player.updateInventory();
+                return;
+            }
+
+            if (itemStack.getType() == Material.LAVA_BUCKET) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "✘ Le seau de lave est désactivé !");
+                player.updateInventory();
+            }
+        }
+
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (itemStack == null || itemStack.getType() != Material.REDSTONE_TORCH_ON) return;
         if (!itemStack.getItemMeta().getDisplayName().equals(ChatColor.RED + "" + ChatColor.BOLD + "Settings")) return;
-        if (!player.isOp()) return;
+        if (!HostManager.isHost(player)) return;
 
         event.setCancelled(true);
         new SettingsGUI(this.instance, player);
@@ -124,6 +138,11 @@ public class GlobalListeners implements Listener {
     }
 
     @EventHandler (priority = EventPriority.MONITOR)
+    public void onClick(final InventoryClickEvent event) {
+        event.setCancelled(!this.isPlaying());
+    }
+
+    @EventHandler (priority = EventPriority.MONITOR)
     public void onWeatherChange(final WeatherChangeEvent event) {
         if (event.toWeatherState()) {
             event.setCancelled(true);
@@ -138,6 +157,18 @@ public class GlobalListeners implements Listener {
             event.setCancelled(true);
             event.getWorld().setStorm(false);
             event.getWorld().setWeatherDuration(Integer.MAX_VALUE);
+        }
+    }
+
+    @EventHandler (priority = EventPriority.HIGH)
+    public void onCraft(final CraftItemEvent event) {
+        if (event.getRecipe().getResult().getType() == Material.FISHING_ROD) {
+            event.setCancelled(true);
+            event.getInventory().setResult(null);
+
+            if (event.getWhoClicked() instanceof Player) {
+                event.getWhoClicked().sendMessage(ChatColor.RED + "✘ Le craft de la canne à pêche est désactivé !");
+            }
         }
     }
 
@@ -172,53 +203,48 @@ public class GlobalListeners implements Listener {
         }
     }
 
-    @EventHandler (priority = EventPriority.MONITOR)
-    public void onPlayerAttack(final EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player)) return;
-        if (!(event.getEntity() instanceof Player)) return;
-
-        final Player player = (Player) event.getDamager();
-        final Player target = (Player) event.getEntity();
-
-        if (!PvPEvent.PvPHandler.getInstance().isEnabled()) event.setCancelled(true);
+    @EventHandler (priority =  EventPriority.MONITOR)
+    public void onWorldLoad(final WorldLoadEvent event) {
+        DayCycleManager.forceDay(uhcWorld);
     }
 
     @EventHandler (priority = EventPriority.MONITOR)
-    public void onPlayerDeath(final PlayerDeathEvent event) {
-        final Player player = event.getEntity();
-        final Player killer = player.getKiller();
-
-        final Location deathLocation = player.getLocation().clone();
-        final List<ItemStack> items = new ArrayList<>(event.getDrops());
-
-        event.getDrops().clear();
-
-        if (killer != null) {
-            event.setDeathMessage(ChatColor.RED + "☠ " + ChatColor.YELLOW + player.getName() +
-                    ChatColor.GRAY + " a été tué par " +
-                    ChatColor.YELLOW + killer.getName());
-        } else {
-            event.setDeathMessage(ChatColor.RED + "☠ " + ChatColor.YELLOW + player.getName() +
-                    ChatColor.GRAY + " est mort");
+    public void onFireSpread(BlockSpreadEvent event) {
+        if (event.getSource().getType() == Material.FIRE) {
+            event.setCancelled(true);
         }
+    }
 
-        Bukkit.getScheduler().runTaskLater(this.instance, () -> {
-            if (deathLocation.getBlock().getType() == Material.AIR) {
-                deathLocation.getBlock().setType(Material.CHEST);
+    @EventHandler (priority = EventPriority.MONITOR)
+    public void onBlockIgnite(final BlockIgniteEvent event) {
+        event.setCancelled(true);
+    }
 
-                if (deathLocation.getBlock().getState() instanceof Chest) {
-                    final Chest chest = (Chest) deathLocation.getBlock().getState();
-                    final Inventory chestInventory = chest.getInventory();
+    @EventHandler (priority = EventPriority.MONITOR)
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        EntityType type = event.getEntityType();
 
-                    for (ItemStack item : items) {
-                        if (item != null && item.getType() != Material.AIR) chestInventory.addItem(item);
-                    }
-
-                    chest.update();
-                }
-            }
-        }, 20L * 3L);
-
+        switch (type) {
+            case ZOMBIE:
+            case SKELETON:
+            case SPIDER:
+            case CAVE_SPIDER:
+            case CREEPER:
+            case ENDERMAN:
+            case WITCH:
+            case SLIME:
+            case SILVERFISH:
+            case ENDERMITE:
+            case GUARDIAN:
+            case BLAZE:
+            case GHAST:
+            case MAGMA_CUBE:
+            case PIG_ZOMBIE:
+                event.setCancelled(true);
+                break;
+            default:
+                break;
+        }
     }
 
     private boolean isPlaying() {

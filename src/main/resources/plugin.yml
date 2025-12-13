@@ -2,7 +2,7 @@ name: LeagueUHC
 main: fr.kiza.leagueuhc.LeagueUHC
 version: '1.0-SNAPSHOT'
 api-version: 1.8
-authors: ["Manawan", "KIZA"]
+authors: ["KIZA", "Manawan"]
 
 commands:
   uhc:

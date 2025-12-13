@@ -2,13 +2,9 @@ package fr.kiza.leagueuhc.core.game.state.states;
 
 import fr.kiza.leagueuhc.LeagueUHC;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
-import fr.kiza.leagueuhc.core.game.helper.pregen.PregenManager;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
-import fr.kiza.leagueuhc.core.game.input.InputType;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
-import fr.kiza.leagueuhc.managers.commands.CommandUHC;
-import fr.kiza.leagueuhc.utils.FileUtils;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -27,12 +23,7 @@ public class FinishedState extends BaseGameState {
         final long entryTime = System.currentTimeMillis();
         context.setData("finishedTime", entryTime);
 
-        Bukkit.getWhitelistedPlayers().forEach(players -> players.setWhitelisted(false));
-        Bukkit.reloadWhitelist();
-
         Bukkit.getOnlinePlayers().forEach(this::sendPlayerToHub);
-
-        FileUtils.deleteWorld(Bukkit.getWorld("uhc-world"));
 
         new BukkitRunnable() {
             @Override
@@ -53,12 +44,6 @@ public class FinishedState extends BaseGameState {
     @Override
     public void update(GameContext context, long deltaTime) { }
 
-    @Override
-    public void handleInput(GameContext context, GameInput input) { }
-
-    /**
-     * Envoie un joueur spécifique vers le hub via BungeeCord
-     */
     private void sendPlayerToHub(Player player) {
         try {
             ByteArrayDataOutput out = ByteStreams.newDataOutput();
@@ -68,9 +53,8 @@ public class FinishedState extends BaseGameState {
             player.sendPluginMessage(LeagueUHC.getInstance(), "BungeeCord", out.toByteArray());
 
             player.sendMessage(ChatColor.GREEN + "Redirection vers le hub...");
-            Bukkit.getLogger().info("[LeagueUHC] " + player.getName() + " envoyé vers le hub");
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[LeagueUHC] Erreur lors de l'envoi de " + player.getName() + " vers le hub: " + e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 }
