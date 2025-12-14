@@ -5,8 +5,11 @@ import fr.kiza.leagueuhc.core.api.champion.ability.Ability;
 import fr.kiza.leagueuhc.core.api.champion.ability.AbilityContext;
 import fr.kiza.leagueuhc.core.api.champion.ability.StatefulAbility;
 import fr.kiza.leagueuhc.core.api.champion.annotations.ChampionEntry;
+import fr.kiza.leagueuhc.core.api.packets.builder.ParticleBuilder;
 import fr.kiza.leagueuhc.core.game.GamePlayer;
 import fr.kiza.leagueuhc.utils.ItemBuilder;
+
+import net.minecraft.server.v1_8_R3.EnumParticle;
 
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -15,16 +18,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
-/**
- * Champion Teemo - Le Scout Swift
- *
- * Abilities:
- * - Passive: Camouflage - Devient invisible en restant accroupi
- * - Active: Piège Nocif - Pose des champignons explosifs (invisibles après 2s)
- */
 @ChampionEntry
 public class Teemo extends Champion {
 
@@ -43,7 +42,6 @@ public class Teemo extends Champion {
 
     @Override
     public void onAssign(GamePlayer player) {
-        // Donner l'item de l'ability Piège Nocif
         getAbility("Piège Nocif").ifPresent(ability -> {
             ItemStack item = new ItemBuilder(ability.getItemMaterial())
                     .setName(ChatColor.GREEN + ability.getName())
@@ -54,7 +52,7 @@ public class Teemo extends Champion {
                     )
                     .toItemStack();
 
-            item.setAmount(5); // Donner 5 champignons de base
+            item.setAmount(5);
             player.getPlayer().getInventory().addItem(item);
             player.getPlayer().updateInventory();
         });
@@ -62,15 +60,12 @@ public class Teemo extends Champion {
 
     @Override
     public void onRevoke(GamePlayer player) {
-        // Retirer les effets de potion
         player.getPlayer().removePotionEffect(PotionEffectType.INVISIBILITY);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PASSIVE : Camouflage - Invisibilité en sneak
-    // ═══════════════════════════════════════════════════════════════════════════
-
     private static class CamouflagePassive extends Ability {
+
+        private final Map<UUID, Location> lastPositions = new HashMap<>();
 
         @Override
         public String getName() {
@@ -79,7 +74,7 @@ public class Teemo extends Champion {
 
         @Override
         public String getDescription() {
-            return "Devient invisible en restant accroupi.";
+            return "Devient invisible en restant accroupi et immobile.";
         }
 
         @Override
@@ -90,28 +85,39 @@ public class Teemo extends Champion {
         @Override
         public void onTick(GamePlayer owner) {
             Player player = owner.getPlayer();
-            Location location = player.getLocation();
+            UUID uuid = player.getUniqueId();
+            Location currentLoc = player.getLocation();
+            Location lastLoc = lastPositions.get(uuid);
 
-            if (location.getX() != player.getLocation().getX() || location.getY() != player.getLocation().getY() || location.getZ() != player.getLocation().getZ()) return;
+            boolean hasMoved = lastLoc != null &&
+                    (lastLoc.getX() != currentLoc.getX() ||
+                            lastLoc.getY() != currentLoc.getY() ||
+                            lastLoc.getZ() != currentLoc.getZ());
 
-            if (player.isSneaking()) {
+            lastPositions.put(uuid, currentLoc.clone());
+
+            if (player.isSneaking() && !hasMoved) {
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.INVISIBILITY,
-                        5, // 5 ticks = 0.25 secondes
-                        0, // Niveau 1
-                        false, // Pas de particules ambiantes
-                        false  // Pas d'icône
+                        5,
+                        0,
+                        false,
+                        false
                 ), true);
+            } else if (hasMoved && player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
+                player.removePotionEffect(PotionEffectType.INVISIBILITY);
             }
+        }
+
+        @Override
+        public void onDisable(GamePlayer owner) {
+            lastPositions.remove(owner.getUUID());
         }
 
         @Override
         public void execute(GamePlayer caster, AbilityContext ctx) {  }
     }
 
-    /**
-     * Représente un piège champignon avec sa location et son timestamp de pose.
-     */
     private static class MushroomTrap {
         final Location location;
         final long placedAt;
@@ -181,26 +187,20 @@ public class Teemo extends Champion {
                     return;
                 }
 
-                // Annuler l'event pour éviter les actions par défaut
                 event.setCancelled(true);
 
-                // Placer le champignon
                 Block target = clicked.getRelative(event.getBlockFace());
 
-                // Vérifier si on peut placer
                 if (target.getType() != Material.AIR) {
                     caster.getPlayer().sendMessage(ChatColor.RED + "Impossible de placer le piège ici !");
                     return;
                 }
 
-                // Placer le champignon visible
                 target.setType(Material.BROWN_MUSHROOM);
 
-                // Ajouter le piège à la liste
                 MushroomTrap trap = new MushroomTrap(target.getLocation());
                 addState(caster.getUUID(), trap);
 
-                // Consommer l'item
                 ItemStack item = event.getItem();
                 if (item != null && item.getAmount() > 1) {
                     item.setAmount(item.getAmount() - 1);
@@ -208,7 +208,6 @@ public class Teemo extends Champion {
                     caster.getPlayer().setItemInHand(null);
                 }
 
-                // Feedback
                 caster.getPlayer().sendMessage(ChatColor.GREEN + "🍄 Champignon posé ! (invisible dans 2s)");
                 caster.getPlayer().playSound(caster.getPlayer().getLocation(), Sound.DIG_GRASS, 1f, 1f);
             });
@@ -228,36 +227,35 @@ public class Teemo extends Champion {
                 MushroomTrap trap = iterator.next();
                 Location trapLoc = trap.location;
 
-                // Vérifier si le piège doit devenir invisible
                 if (!trap.hidden && (now - trap.placedAt) >= HIDE_DELAY_MS) {
-                    // Retirer le bloc champignon (devient invisible)
                     if (trapLoc.getBlock().getType() == Material.BROWN_MUSHROOM) {
                         trapLoc.getBlock().setType(Material.AIR);
                     }
                     trap.hidden = true;
 
-                    // Particules discrètes pour le owner uniquement
-                    ownerPlayer.playEffect(trapLoc.clone().add(0.5, 0.2, 0.5), Effect.HAPPY_VILLAGER, 0);
+                    ParticleBuilder.create()
+                            .type(EnumParticle.VILLAGER_HAPPY)
+                            .location(trapLoc.clone().add(0.5, 0.2, 0.5))
+                            .count(5)
+                            .send(ownerPlayer);
                 }
 
-                // Particules périodiques pour le owner (pour voir ses pièges cachés)
-                if (trap.hidden && now % 1000 < 50) { // Toutes les ~1 seconde
-                    ownerPlayer.playEffect(trapLoc.clone().add(0.5, 0.1, 0.5), Effect.COLOURED_DUST, 0);
+                if (trap.hidden && now % 1000 < 50) {
+                    ParticleBuilder.create()
+                            .type(EnumParticle.REDSTONE)
+                            .location(trapLoc.clone().add(0.5, 0.1, 0.5))
+                            .count(3)
+                            .send(ownerPlayer);
                 }
 
-                // Centre du bloc pour la détection
                 Location center = trapLoc.clone().add(0.5, 0, 0.5);
 
-                // Vérifier les joueurs à proximité
                 for (Player target : world.getPlayers()) {
-                    // Ignorer le propriétaire
                     if (target.equals(ownerPlayer)) continue;
 
-                    // Vérifier la distance (pieds du joueur)
                     double distSq = target.getLocation().distanceSquared(center);
                     if (distSq > TRIGGER_RADIUS * TRIGGER_RADIUS) continue;
 
-                    // BOOM !
                     explodeTrap(trapLoc, ownerPlayer, target, trap.hidden);
                     iterator.remove();
                     break;
@@ -268,38 +266,31 @@ public class Teemo extends Champion {
         private void explodeTrap(Location location, Player owner, Player victim, boolean wasHidden) {
             World world = location.getWorld();
 
-            // Si le piège était visible, on retire le bloc
             if (!wasHidden && location.getBlock().getType() == Material.BROWN_MUSHROOM) {
                 location.getBlock().setType(Material.AIR);
             }
 
-            // Effets visuels
             world.playEffect(location, Effect.POTION_BREAK, 0);
             world.playEffect(location, Effect.SMOKE, 4);
             world.playSound(location, Sound.EXPLODE, 0.8f, 1.2f);
 
-            // Particules de champignon
-            for (int i = 0; i < 10; i++) {
-                world.playEffect(
-                        location.clone().add(Math.random() - 0.5, Math.random(), Math.random() - 0.5),
-                        Effect.SPELL,
-                        0
-                );
-            }
+            ParticleBuilder.create()
+                    .type(EnumParticle.SPELL)
+                    .location(location.clone().add(0.5, 0.5, 0.5))
+                    .offset(0.5f, 0.5f, 0.5f)
+                    .count(10)
+                    .sendInRadius(30);
 
-            // Dégâts et effets
             victim.damage(DAMAGE, owner);
             victim.addPotionEffect(new PotionEffect(PotionEffectType.POISON, POISON_DURATION, 1));
             victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, SLOW_DURATION, 1));
 
-            // Messages
             victim.sendMessage(ChatColor.RED + "🍄 Tu as marché sur un piège de " + owner.getName() + " !");
             owner.sendMessage(ChatColor.GREEN + "🍄 Ton piège a explosé sur " + victim.getName() + " !");
         }
 
         @Override
         public void onDisable(GamePlayer owner) {
-            // Nettoyer tous les champignons posés (visibles uniquement)
             for (MushroomTrap trap : getStates(owner.getUUID())) {
                 if (!trap.hidden && trap.location.getBlock().getType() == Material.BROWN_MUSHROOM) {
                     trap.location.getBlock().setType(Material.AIR);
