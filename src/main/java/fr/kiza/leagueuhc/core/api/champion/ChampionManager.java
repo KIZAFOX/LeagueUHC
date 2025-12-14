@@ -28,10 +28,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Gestionnaire centralisé pour tous les champions et leurs abilities.
- * Gère les cooldowns, les events, et le tick des abilities passives.
- */
 public class ChampionManager implements Listener {
 
     private final LeagueUHC plugin;
@@ -54,9 +50,6 @@ public class ChampionManager implements Listener {
         return instance;
     }
 
-    /**
-     * Démarre la tâche de tick pour les champions et abilities passives.
-     */
     private void startTickTask() {
         tickTask = new BukkitRunnable() {
             @Override
@@ -67,14 +60,12 @@ public class ChampionManager implements Listener {
 
                     Champion champion = gp.getChampion();
 
-                    // Tick du champion
                     try {
                         champion.onTick(gp);
                     } catch (Exception e) {
                         plugin.getLogger().warning("Error in champion tick for " + champion.getName() + ": " + e.getMessage());
                     }
 
-                    // Tick des abilities (passives ET stateful)
                     for (Ability ability : champion.getAbilities()) {
                         try {
                             ability.onTick(gp);
@@ -87,9 +78,6 @@ public class ChampionManager implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    /**
-     * Arrête proprement le manager.
-     */
     public void shutdown() {
         if (tickTask != null) {
             tickTask.cancel();
@@ -98,10 +86,6 @@ public class ChampionManager implements Listener {
         cooldowns.clear();
         plugin.getLogger().info("ChampionManager shutdown");
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // GESTION DES COOLDOWNS
-    // ═══════════════════════════════════════════════════════════════
 
     private String cooldownKey(UUID uuid, String abilityName) {
         return uuid.toString() + ":" + abilityName;
@@ -134,22 +118,13 @@ public class ChampionManager implements Listener {
         cooldowns.entrySet().removeIf(entry -> entry.getKey().startsWith(uuid.toString()));
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // ASSIGNATION DES CHAMPIONS
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * Assigne un champion à un joueur.
-     */
     public void assignChampion(GamePlayer gamePlayer, Champion champion) {
-        // Révoquer l'ancien champion si présent
         if (gamePlayer.getChampion() != null) {
             revokeChampion(gamePlayer);
         }
 
         gamePlayer.setChampion(champion);
 
-        // Activer les abilities
         for (Ability ability : champion.getAbilities()) {
             try {
                 ability.onEnable(gamePlayer);
@@ -158,14 +133,12 @@ public class ChampionManager implements Listener {
             }
         }
 
-        // Hook du champion
         try {
             champion.onAssign(gamePlayer);
         } catch (Exception e) {
             plugin.getLogger().warning("Error in onAssign for " + champion.getName() + ": " + e.getMessage());
         }
 
-        // Message au joueur
         Player player = gamePlayer.getPlayer();
         player.sendMessage(ChatColor.GOLD + "══════════════════════════════════════");
         player.sendMessage(ChatColor.GREEN + "✔ Champion assigné: " + ChatColor.YELLOW + champion.getName());
@@ -174,14 +147,10 @@ public class ChampionManager implements Listener {
         player.sendMessage(ChatColor.GOLD + "══════════════════════════════════════");
     }
 
-    /**
-     * Retire le champion d'un joueur.
-     */
     public void revokeChampion(GamePlayer gamePlayer) {
         Champion champion = gamePlayer.getChampion();
         if (champion == null) return;
 
-        // Désactiver les abilities
         for (Ability ability : champion.getAbilities()) {
             try {
                 ability.onDisable(gamePlayer);
@@ -190,23 +159,17 @@ public class ChampionManager implements Listener {
             }
         }
 
-        // Hook du champion
         try {
             champion.onRevoke(gamePlayer);
         } catch (Exception e) {
             plugin.getLogger().warning("Error in onRevoke for " + champion.getName() + ": " + e.getMessage());
         }
 
-        // Nettoyer les cooldowns
         clearAllCooldowns(gamePlayer.getUUID());
 
         gamePlayer.setChampion(null);
         gamePlayer.getPlayer().sendMessage(ChatColor.YELLOW + "Votre champion a été retiré.");
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // EVENT HANDLERS
-    // ═══════════════════════════════════════════════════════════════
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onInteract(PlayerInteractEvent event) {
@@ -249,7 +212,6 @@ public class ChampionManager implements Listener {
             plugin.getLogger().warning("Error in onDamageDealt: " + e.getMessage());
         }
 
-        // Vérifier aussi les dégâts reçus
         if (event.getEntity() instanceof Player) {
             Player victim = (Player) event.getEntity();
             GamePlayer victimGp = GamePlayer.get(victim);
@@ -291,13 +253,8 @@ public class ChampionManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        // Nettoyer les cooldowns quand le joueur quitte
         clearAllCooldowns(event.getPlayer().getUniqueId());
     }
-
-    // ═══════════════════════════════════════════════════════════════
-    // LOGIQUE D'EXÉCUTION
-    // ═══════════════════════════════════════════════════════════════
 
     private Ability.Trigger mapActionToTrigger(Action action, boolean sneaking) {
         switch (action) {
@@ -320,14 +277,12 @@ public class ChampionManager implements Listener {
             if (ability.getTrigger() != trigger) continue;
             if (!matchesItem(ability, heldItem)) continue;
 
-            // Vérifier le cooldown
             if (isOnCooldown(player.getUniqueId(), ability)) {
                 long remaining = getRemainingCooldown(player.getUniqueId(), ability);
                 player.sendMessage(ChatColor.RED + "⏳ " + ability.getName() + " disponible dans " + ((remaining / 1000) + 1) + "s");
                 continue;
             }
 
-            // Exécuter l'ability
             try {
                 ability.execute(gp, ctx);
                 setCooldown(player.getUniqueId(), ability);
@@ -339,22 +294,18 @@ public class ChampionManager implements Listener {
     }
 
     private boolean matchesItem(Ability ability, ItemStack held) {
-        // Pas d'item requis = toujours OK
         if (ability.getItemMaterial() == null) {
             return true;
         }
 
-        // Item requis mais pas d'item en main
         if (held == null || held.getType() != ability.getItemMaterial()) {
             return false;
         }
 
-        // Si on ne requiert pas un item nommé, c'est OK
         if (!ability.requiresNamedItem()) {
             return true;
         }
 
-        // Vérifier le nom
         return held.hasItemMeta()
                 && held.getItemMeta().hasDisplayName()
                 && held.getItemMeta().getDisplayName().contains(ability.getName());
