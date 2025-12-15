@@ -63,7 +63,9 @@ public class Scoreboard implements Listener {
                 this.updatePlayingBoard(board);
                 break;
             case "ENDING":
+            case "FINISHED":
                 this.updateEndingBoard(board);
+                break;
             default:
                 this.updateDefaultBoard(board);
                 break;
