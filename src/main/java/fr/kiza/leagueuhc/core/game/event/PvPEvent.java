@@ -1,8 +1,12 @@
 package fr.kiza.leagueuhc.core.game.event;
 
-import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
 
-public class PvPEvent {
+public class PvPEvent extends Event {
+
+    private static final HandlerList handlers = new HandlerList();
+
     private final boolean isEnabled;
 
     public PvPEvent(boolean isEnabled) {
@@ -13,26 +17,12 @@ public class PvPEvent {
         return isEnabled;
     }
 
-    public static class PvPHandler {
-        private static final PvPHandler INSTANCE = new PvPHandler();
+    @Override
+    public HandlerList getHandlers() {
+        return handlers;
+    }
 
-        private boolean isEnabled;
-
-        private PvPHandler() {
-            GameEventBus.getInstance().subscribe(PvPEvent.class, event -> this.isEnabled = event.isEnabled);
-        }
-
-        public boolean isEnabled() {
-            return isEnabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.isEnabled = enabled;
-            GameEventBus.getInstance().publish(new PvPEvent(enabled));
-        }
-
-        public static PvPHandler getInstance() {
-            return INSTANCE;
-        }
+    public static HandlerList getHandlerList() {
+        return handlers;
     }
 }

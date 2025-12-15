@@ -1,6 +1,12 @@
 package fr.kiza.leagueuhc.core.game.event;
 
-public class GameTimerEvent {
+import org.bukkit.event.Event;
+import org.bukkit.event.HandlerList;
+
+public class GameTimerEvent extends Event {
+
+    private static final HandlerList handlers = new HandlerList();
+
     private final long gameStartTime;
     private final long currentTime;
     private final int elapsedSeconds;
@@ -43,5 +49,14 @@ public class GameTimerEvent {
         } else {
             return String.format("%d:%02d", minutes, seconds);
         }
+    }
+
+    @Override
+    public HandlerList getHandlers() {
+        return handlers;
+    }
+
+    public static HandlerList getHandlerList() {
+        return handlers;
     }
 }
