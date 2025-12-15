@@ -1,72 +1,38 @@
 package fr.kiza.leagueuhc.core.game.timer;
 
-import fr.kiza.leagueuhc.LeagueUHC;
 import fr.kiza.leagueuhc.core.game.event.GameTimerEvent;
-import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 public class GameTimerManager {
 
-    private static GameTimerManager instance;
+    private static final GameTimerManager INSTANCE = new GameTimerManager();
 
-    private long gameStartTime = 0;
-    private boolean isRunning = false;
+    private long gameStartTime;
     private BukkitTask timerTask;
 
-    private GameTimerManager() {}
+    private GameTimerManager() { }
 
-    public static GameTimerManager getInstance() {
-        if (instance == null) {
-            instance = new GameTimerManager();
-        }
-        return instance;
-    }
-
-    public void start() {
-        if (isRunning) return;
-
+    public void start(Plugin plugin) {
         this.gameStartTime = System.currentTimeMillis();
-        this.isRunning = true;
 
-        this.timerTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!isRunning) {
-                    this.cancel();
-                    return;
-                }
-
-                long currentTime = System.currentTimeMillis();
-                GameTimerEvent event = new GameTimerEvent(gameStartTime, currentTime);
-                GameEventBus.getInstance().publish(event);
-            }
-        }.runTaskTimer(LeagueUHC.getInstance(), 0L, 20L);
+        this.timerTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            long currentTime = System.currentTimeMillis();
+            Bukkit.getPluginManager().callEvent(new GameTimerEvent(gameStartTime, currentTime));
+        }, 0L, 20L);
     }
 
-    /**
-     * Stop le timer
-     */
     public void stop() {
-        this.isRunning = false;
         if (this.timerTask != null) {
             this.timerTask.cancel();
             this.timerTask = null;
         }
     }
 
-    public void reset() {
-        stop();
-        this.gameStartTime = 0;
-    }
-
-    public int getElapsedSeconds() {
-        if (!isRunning || gameStartTime == 0) return 0;
-        return (int) ((System.currentTimeMillis() - gameStartTime) / 1000);
-    }
-
     public String getFormattedTime() {
-        int totalSeconds = getElapsedSeconds();
+        if (gameStartTime == 0) return "";
+        int totalSeconds = (int) ((System.currentTimeMillis() - gameStartTime) / 1000);
         int hours = totalSeconds / 3600;
         int minutes = (totalSeconds % 3600) / 60;
         int seconds = totalSeconds % 60;
@@ -78,11 +44,7 @@ public class GameTimerManager {
         }
     }
 
-    public boolean isRunning() {
-        return isRunning;
-    }
-
-    public long getGameStartTime() {
-        return gameStartTime;
+    public static GameTimerManager getInstance() {
+        return INSTANCE;
     }
 }

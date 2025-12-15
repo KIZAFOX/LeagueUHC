@@ -5,12 +5,9 @@ import fr.kiza.leagueuhc.core.api.champion.ChampionAssignment;
 import fr.kiza.leagueuhc.core.api.packets.builder.ActionBarBuilder;
 import fr.kiza.leagueuhc.core.api.packets.builder.TitleBuilder;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
-import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
-import fr.kiza.leagueuhc.core.game.event.MovementFreezeEvent;
+import fr.kiza.leagueuhc.core.game.event.PlayerFreezeEvent;
 import fr.kiza.leagueuhc.core.game.helper.InventoryHelper;
-import fr.kiza.leagueuhc.core.game.helper.pregen.PregenManager;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
-import fr.kiza.leagueuhc.core.game.mechanics.GameMechanicsManager;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
 import fr.kiza.leagueuhc.core.game.timer.GameTimerManager;
@@ -44,7 +41,7 @@ public class PlayingState extends BaseGameState {
 
     @Override
     public void onEnter(GameContext context) {
-        new GameMechanicsManager().init();
+        GameTimerManager.getInstance().start(this.instance);
 
         this.instance.getGameEngine().getGameHelper().getManager().getDayCycleManager().start(Bukkit.getWorld("uhc_world"));
 
@@ -161,7 +158,7 @@ public class PlayingState extends BaseGameState {
                         new BukkitRunnable() {
                             @Override
                             public void run() {
-                                GameEventBus.getInstance().publish(new MovementFreezeEvent(false));
+                                Bukkit.getPluginManager().callEvent(new PlayerFreezeEvent(player, false));
                             }
                         }.runTaskLater(LeagueUHC.getInstance(), 20L * 2);
 

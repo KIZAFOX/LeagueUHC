@@ -45,10 +45,6 @@ public class GameContext {
         this.effectPercentages.put(PotionEffectType.SPEED, 20);
     }
 
-    // ========================
-    // Effects
-    // ========================
-
     public void resetEffects() {
         this.effectPercentages.put(PotionEffectType.INCREASE_DAMAGE, 20);
         this.effectPercentages.put(PotionEffectType.DAMAGE_RESISTANCE, 20);
@@ -72,10 +68,6 @@ public class GameContext {
     public boolean isEffectActive(PotionEffectType type) {
         return getEffectPercentage(type) > 0;
     }
-
-    // ========================
-    // Players
-    // ========================
 
     public void addPlayer(UUID playerUuid) {
         this.allPlayers.add(playerUuid);
@@ -113,10 +105,6 @@ public class GameContext {
         }
     }
 
-    // ========================
-    // Scores
-    // ========================
-
     public int getScore(UUID playerUuid) {
         return this.playerScores.getOrDefault(playerUuid, 0);
     }
@@ -134,10 +122,6 @@ public class GameContext {
         return new HashMap<>(this.playerScores);
     }
 
-    // ========================
-    // Game Data
-    // ========================
-
     public void setData(String key, Object value) {
         this.gameData.put(key, value);
     }
@@ -151,10 +135,6 @@ public class GameContext {
         T value = this.getData(key);
         return value != null ? value : defaultValue;
     }
-
-    // ========================
-    // Scenarios
-    // ========================
 
     public boolean isScenarioActive(String id) {
         return activeScenarios.contains(id.toLowerCase());
@@ -205,10 +185,6 @@ public class GameContext {
         scenarioPercentages.clear();
     }
 
-    // ========================
-    // Champions
-    // ========================
-
     public boolean isChampionEnabled(Champion champion) {
         return enabledChampions.contains(champion);
     }
@@ -233,10 +209,6 @@ public class GameContext {
         enabledChampions.clear();
     }
 
-    // ========================
-    // Countdown / Pause
-    // ========================
-
     public int getCountdown() {
         return countdown;
     }
@@ -257,10 +229,6 @@ public class GameContext {
         isPaused = paused;
     }
 
-    // ========================
-    // Reset
-    // ========================
-
     public void reset() {
         this.countdown = COUNTDOWN;
         this.isPaused = false;
@@ -273,7 +241,5 @@ public class GameContext {
         this.clearScenarios();
         this.resetEffects();
         this.disableAllChampions();
-
-        GameTimerManager.getInstance().reset();
     }
 }

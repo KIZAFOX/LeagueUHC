@@ -18,6 +18,8 @@ public final class LeagueUHC extends JavaPlugin {
 
         this.getLogger().info("==== LeagueUHC START ====");
 
+        this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+
         Bukkit.setWhitelist(true);
 
         this.gameEngine = new GameEngine(this);
@@ -34,7 +36,7 @@ public final class LeagueUHC extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        Bukkit.getWhitelistedPlayers().forEach(players -> players.setWhitelisted(false));
+        this.getServer().getMessenger().unregisterOutgoingPluginChannel(this, "BungeeCord");
 
         if (this.gameEngine != null) this.gameEngine.stop();
     }

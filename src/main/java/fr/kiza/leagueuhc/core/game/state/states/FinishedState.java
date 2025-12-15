@@ -12,6 +12,10 @@ import org.bukkit.scheduler.BukkitRunnable;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
 public class FinishedState extends BaseGameState {
 
     public FinishedState() {
@@ -39,22 +43,28 @@ public class FinishedState extends BaseGameState {
     }
 
     @Override
-    public void onExit(GameContext context) { }
+    public void onExit(GameContext context) {
+    }
 
     @Override
-    public void update(GameContext context, long deltaTime) { }
+    public void update(GameContext context, long deltaTime) {
+    }
 
     private void sendPlayerToHub(Player player) {
-        try {
-            ByteArrayDataOutput out = ByteStreams.newDataOutput();
-            out.writeUTF("Connect");
-            out.writeUTF("hub");
+        if (player.getServer().getMessenger().isOutgoingChannelRegistered(LeagueUHC.getInstance(), "BungeeCord")) {
+            try {
+                ByteArrayOutputStream b = new ByteArrayOutputStream();
+                DataOutputStream out = new DataOutputStream(b);
 
-            player.sendPluginMessage(LeagueUHC.getInstance(), "BungeeCord", out.toByteArray());
+                out.writeUTF("Connect");
+                out.writeUTF("hub");
 
-            player.sendMessage(ChatColor.GREEN + "Redirection vers le hub...");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+                player.sendPluginMessage(LeagueUHC.getInstance(), "BungeeCord", b.toByteArray());
+            } catch (IOException e) {
+                player.kickPlayer("§aRetour au hub !");
+            }
+        } else {
+            player.kickPlayer("§aPartie terminée !\n§7Merci d'avoir joué !");
         }
     }
 }

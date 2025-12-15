@@ -3,17 +3,14 @@ package fr.kiza.leagueuhc.core.game.state.states;
 import fr.kiza.leagueuhc.core.api.packets.builder.TitleBuilder;
 import fr.kiza.leagueuhc.core.game.context.GameContext;
 import fr.kiza.leagueuhc.core.game.event.PvPEvent;
-import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
 import fr.kiza.leagueuhc.core.game.host.HostManager;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
-import fr.kiza.leagueuhc.utils.ItemBuilder;
 
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 
-import java.util.Collections;
 
 public class IdleState extends BaseGameState {
 
@@ -26,7 +23,7 @@ public class IdleState extends BaseGameState {
         context.reset();
 
         Bukkit.getOnlinePlayers().forEach(players -> this.setupPlayer(context, players));
-        GameEventBus.getInstance().publish(new PvPEvent(false));
+        Bukkit.getPluginManager().callEvent(new PvPEvent(false));
     }
 
     @Override

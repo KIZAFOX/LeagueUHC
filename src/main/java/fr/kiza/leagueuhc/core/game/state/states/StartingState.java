@@ -1,8 +1,7 @@
 package fr.kiza.leagueuhc.core.game.state.states;
 
 import fr.kiza.leagueuhc.core.game.context.GameContext;
-import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
-import fr.kiza.leagueuhc.core.game.event.MovementFreezeEvent;
+import fr.kiza.leagueuhc.core.game.event.PlayerFreezeEvent;
 import fr.kiza.leagueuhc.core.game.input.GameInput;
 import fr.kiza.leagueuhc.core.game.state.BaseGameState;
 import fr.kiza.leagueuhc.core.game.state.GameState;
@@ -15,6 +14,7 @@ import org.bukkit.entity.Player;
 public class StartingState extends BaseGameState {
 
     private long elapsedTime = 0;
+    private boolean playersFrozen = false;
 
     public StartingState() {
         super(GameState.STARTING.getName());
@@ -23,18 +23,19 @@ public class StartingState extends BaseGameState {
     @Override
     public void onEnter(GameContext context) {
         this.elapsedTime = 0;
+        this.playersFrozen = false;
 
         this.broadcast(ChatColor.GOLD + "" + ChatColor.BOLD + "=== DÉMARRAGE DE LA PARTIE ===");
         this.broadcast(ChatColor.YELLOW + "La partie commence dans " + ChatColor.RED + context.getCountdown() + ChatColor.YELLOW + " secondes !");
 
-        Bukkit.getOnlinePlayers().forEach(players -> {
-            players.getInventory().clear();
-            players.playSound(players.getLocation(), Sound.NOTE_PLING, 1.0f, 1.0f);
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            player.getInventory().clear();
+            player.playSound(player.getLocation(), Sound.NOTE_PLING, 1.0f, 1.0f);
         });
     }
 
     @Override
-    public void onExit(GameContext context) { }
+    public void onExit(GameContext context) {  }
 
     @Override
     public void update(GameContext context, long deltaTime) {
@@ -48,11 +49,16 @@ public class StartingState extends BaseGameState {
 
             if (countdown > 0) {
                 if (countdown <= 5) {
-                    GameEventBus.getInstance().publish(new MovementFreezeEvent(true));
+                    if (!this.playersFrozen) {
+                        Bukkit.getOnlinePlayers().forEach(player ->
+                                Bukkit.getPluginManager().callEvent(new PlayerFreezeEvent(player, true))
+                        );
+                        this.playersFrozen = true;
+                    }
 
-                    Bukkit.getOnlinePlayers().forEach(players -> {
-                        players.playSound(players.getLocation(), Sound.NOTE_PLING, 1.0f, 1.5f);
-                        players.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + countdown + "...");
+                    Bukkit.getOnlinePlayers().forEach(player -> {
+                        player.playSound(player.getLocation(), Sound.NOTE_PLING, 1.0f, 1.5f);
+                        player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + countdown + "...");
                     });
                 } else if (countdown == 10) {
                     this.broadcast(ChatColor.YELLOW + "Démarrage dans" + ChatColor.RED + " 10 " + ChatColor.YELLOW + "secondes !");

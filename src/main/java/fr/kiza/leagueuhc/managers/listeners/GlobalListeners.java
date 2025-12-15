@@ -5,14 +5,12 @@ import fr.kiza.leagueuhc.LeagueUHC;
 import fr.kiza.leagueuhc.core.api.gadget.RainbowWalk;
 
 import fr.kiza.leagueuhc.core.game.cycle.DayCycleManager;
-import fr.kiza.leagueuhc.core.game.event.bus.GameEventBus;
-import fr.kiza.leagueuhc.core.game.event.MovementFreezeEvent;
 import fr.kiza.leagueuhc.core.game.gui.settings.SettingsGUI;
 import fr.kiza.leagueuhc.core.game.host.HostManager;
 import fr.kiza.leagueuhc.core.game.state.GameState;
+
 import org.bukkit.*;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -34,9 +32,6 @@ public class GlobalListeners implements Listener {
 
     protected final LeagueUHC instance;
 
-    private boolean movementFrozen = false;
-    private final Map<UUID, Location> frozenLocations = new HashMap<>();
-
     private final World uhcWorld = Bukkit.getWorld("uhc_world");
 
     public GlobalListeners(LeagueUHC instance) {
@@ -44,16 +39,6 @@ public class GlobalListeners implements Listener {
         this.instance.getServer().getPluginManager().registerEvents(this, instance);
 
         if (uhcWorld != null) DayCycleManager.forceDay(uhcWorld);
-
-        GameEventBus.getInstance().subscribe(MovementFreezeEvent.class, event -> {
-            this.movementFrozen = event.isFrozen();
-
-            if (event.isFrozen()) {
-                Bukkit.getOnlinePlayers().forEach(players -> this.frozenLocations.put(players.getUniqueId(), players.getLocation().clone()));
-            } else {
-                this.frozenLocations.clear();
-            }
-        });
     }
 
     @EventHandler (priority = EventPriority.MONITOR)
@@ -175,32 +160,6 @@ public class GlobalListeners implements Listener {
     @EventHandler (priority = EventPriority.MONITOR)
     public void onMove(final PlayerMoveEvent event) {
         if (!this.isPlaying()) RainbowWalk.init(event);
-
-        if (this.movementFrozen) {
-            final Player player = event.getPlayer();
-            Location frozenLocation = this.frozenLocations.get(player.getUniqueId());
-
-            if (frozenLocation == null) {
-                frozenLocation = player.getLocation().clone();
-                this.frozenLocations.put(player.getUniqueId(), frozenLocation);
-            }
-
-            if (!player.getWorld().getName().equals(frozenLocation.getWorld().getName())) {
-                frozenLocation = player.getLocation().clone();
-                this.frozenLocations.put(player.getUniqueId(), frozenLocation);
-                return;
-            }
-
-            final Location from = event.getFrom();
-            final Location to = event.getTo();
-
-            if (from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ()) {
-                final Location newLoc = frozenLocation.clone();
-                newLoc.setYaw(to.getYaw());
-                newLoc.setPitch(to.getPitch());
-                event.setTo(newLoc);
-            }
-        }
     }
 
     @EventHandler (priority =  EventPriority.MONITOR)
@@ -244,6 +203,27 @@ public class GlobalListeners implements Listener {
                 break;
             default:
                 break;
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onAsyncChat(final AsyncPlayerChatEvent event) {
+        final Player player = event.getPlayer();
+
+        if (this.instance.getGameEngine().getCurrentState().equals(GameState.PLAYING.getName())) {
+            event.setCancelled(true);
+        } else {
+            String prefix;
+
+            if (player.isOp()) {
+                prefix = ChatColor.RED + "★ " + ChatColor.DARK_RED;
+            } else if (player.hasPermission("host.admin")) {
+                prefix = ChatColor.LIGHT_PURPLE + "✦ " + ChatColor.LIGHT_PURPLE;
+            } else {
+                prefix = ChatColor.GRAY + "● " + ChatColor.GRAY;
+            }
+
+            event.setFormat(prefix + player.getName() + ChatColor.DARK_GRAY + " » " + ChatColor.WHITE + "%2$s");
         }
     }
 
