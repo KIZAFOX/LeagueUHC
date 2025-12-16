@@ -9,7 +9,7 @@ public class Mordekaiser extends Champion {
     protected Mordekaiser() {
         super(
                 "Mordekaiser",
-                "description",
+                "Revenant de fer",
                 Category.FIGHTER,
                 Region.SOLITAIRE,
                 Material.ANVIL
